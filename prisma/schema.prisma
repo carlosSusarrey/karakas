@@ -1,0 +1,154 @@
+// Karakas - MTG Game Tracker
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String?  // Null if using OAuth only
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  oauthAccounts OAuthAccount[]
+  decks         Deck[]
+  gamePlayers   GamePlayer[]
+  powerPlays    PowerPlay[]
+  sessions      Session[]
+
+  // Games created by this user
+  gamesCreated Game[] @relation("GameCreator")
+}
+
+model OAuthAccount {
+  id           String @id @default(cuid())
+  userId       String
+  provider     String // "google", "discord", "github"
+  providerAccountId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// DECKS
+// ============================================
+
+model Deck {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  format       String   // "commander", "standard", "modern", "legacy", "vintage", "pioneer", "pauper", "draft", "sealed"
+
+  // Commander-specific fields
+  commander1   String?  // Primary commander card name
+  commander2   String?  // Partner commander (if applicable)
+  bracket      Int?     // EDH bracket (1-4)
+
+  // Optional decklist
+  decklistUrl  String?  // Link to Moxfield, Archidekt, etc.
+
+  isActive     Boolean  @default(true) // Soft delete / archive
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gamePlayers GamePlayer[]
+}
+
+// ============================================
+// GAMES
+// ============================================
+
+model Game {
+  id          String   @id @default(cuid())
+  createdById String
+  format      String   // Game format
+  totalTurns  Int?     // Total turns in the game
+  notes       String?  // Optional game notes
+  playedAt    DateTime @default(now()) // When the game was played
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  createdBy   User         @relation("GameCreator", fields: [createdById], references: [id])
+  players     GamePlayer[]
+  powerPlays  PowerPlay[]
+}
+
+model GamePlayer {
+  id        String  @id @default(cuid())
+  gameId    String
+  userId    String?  // Null if player is not a registered user (guest)
+  deckId    String?  // Null if deck not tracked
+
+  // Player identification for non-users
+  guestName String?  // Name for guest players
+
+  // Game-specific deck info (snapshot at time of game)
+  commanderUsed1 String? // Commander used in this game
+  commanderUsed2 String? // Partner commander used
+  bracketUsed    Int?    // Bracket for this game
+
+  // Results
+  placement      Int?    // 1 = winner, 2 = second, etc.
+  isWinner       Boolean @default(false)
+  isFirstOut     Boolean @default(false) // First eliminated
+  eliminatedTurn Int?    // Turn when eliminated (null if won or game ended)
+
+  // Relations
+  game       Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user       User?       @relation(fields: [userId], references: [id])
+  deck       Deck?       @relation(fields: [deckId], references: [id])
+  powerPlays PowerPlay[]
+
+  @@unique([gameId, userId])
+}
+
+// ============================================
+// POWER PLAYS
+// ============================================
+
+model PowerPlay {
+  id           String  @id @default(cuid())
+  gameId       String
+  gamePlayerId String
+  userId       String? // The user who made the play
+
+  turn         Int     // Turn number when the play happened
+  type         String  // Type of power play (e.g., "combo", "boardwipe", "theft", "wincon", "removal", "counter", "ramp", "other")
+  description  String  // Description of what happened
+  cardName     String? // Primary card involved (optional)
+
+  createdAt    DateTime @default(now())
+
+  // Relations
+  game       Game       @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gamePlayer GamePlayer @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id])
+}
