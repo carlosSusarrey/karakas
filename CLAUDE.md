@@ -9,14 +9,24 @@ Karakas is an MTG (Magic: The Gathering) game tracking website where users can l
 ## Commands
 
 ```bash
+# Development
 npm run dev           # Start development server at http://localhost:3000
 npm run build         # Create production build
 npm run start         # Run production server
 npm run lint          # Run ESLint
+
+# Database
 npm run db:migrate    # Run Prisma migrations (npx prisma migrate dev)
 npm run db:push       # Push schema changes to database (npx prisma db push)
 npm run db:studio     # Open Prisma Studio GUI (npx prisma studio)
 npm run db:generate   # Generate Prisma client (npx prisma generate)
+
+# Testing
+npm run test          # Run all unit/integration tests (Vitest)
+npm run test:watch    # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
+npm run test:e2e      # Run Playwright E2E tests
+npm run test:e2e:ui   # Run E2E tests with Playwright UI
 ```
 
 ## Architecture
@@ -52,3 +62,23 @@ npm run db:generate   # Generate Prisma client (npx prisma generate)
 **TypeScript:** Strict mode enabled. Target ES2017.
 
 **MTG Types:** See `src/types/mtg.ts` for formats, brackets, and power play types.
+
+## Testing
+
+**Framework:** Vitest (unit/integration) + Playwright (E2E)
+
+**Test structure:**
+- `src/__tests__/` - Unit tests for lib utilities
+- `src/app/*/__tests__/` - Integration tests for routes/actions
+- `tests/e2e/` - End-to-end tests
+
+**Test patterns:**
+- Use `describe`/`it` blocks for organization
+- Mock Prisma client for unit tests
+- Use test database for integration tests
+- E2E tests run against dev server
+
+**Running tests:**
+- Always run `npm run test` before committing
+- Run `npm run test:e2e` for full user flow validation
+- See PRD.md for complete test case specifications
