@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { createSession, getSession, deleteSession } from "./session";
-import type { User } from "@/generated/prisma";
+import type { User } from "@/generated/prisma/client";
 
 const SALT_ROUNDS = 12;
 
