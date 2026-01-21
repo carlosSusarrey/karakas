@@ -87,3 +87,14 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   const { passwordHash: _, ...userWithoutPassword } = session.user;
   return userWithoutPassword;
 }
+
+export async function updatePassword(
+  userId: string,
+  newPassword: string
+): Promise<void> {
+  const passwordHash = await hashPassword(newPassword);
+  await db.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+}

@@ -18,12 +18,12 @@ Karakas is a Magic: The Gathering game tracking application that allows players 
 
 ### 1. User Authentication
 
-**Status:** ✅ Basic implementation complete
+**Status:** ✅ Full implementation complete
 
 - [x] Email/password registration and login
 - [x] Cookie-based sessions
-- [ ] OAuth providers (Google, Discord, GitHub)
-- [ ] Password reset flow
+- [x] OAuth providers (Google, Discord, Apple)
+- [x] Password reset flow
 - [ ] Email verification
 
 ### 2. Deck Management
