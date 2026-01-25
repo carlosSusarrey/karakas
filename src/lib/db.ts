@@ -6,28 +6,27 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-function getDatabaseUrl(): string {
+function getDatabasePath(): string {
   const dbUrl = process.env.DATABASE_URL || "file:./dev.db";
-
-  // If it's already an absolute path, return as-is
-  if (dbUrl.includes("/Users/") || dbUrl.startsWith("file:/")) {
-    return dbUrl;
-  }
 
   // Extract path from file: URL
   const dbPath = dbUrl.startsWith("file:") ? dbUrl.slice(5) : dbUrl;
 
-  // Resolve relative to cwd
-  const absolutePath = path.resolve(process.cwd(), dbPath);
+  // If it's already an absolute path, return as-is
+  if (dbPath.startsWith("/")) {
+    return dbPath;
+  }
 
-  return `file:${absolutePath}`;
+  // Resolve relative to cwd
+  return path.resolve(process.cwd(), dbPath);
 }
 
 function createPrismaClient() {
-  const url = getDatabaseUrl();
-  console.log("[Prisma] Using database:", url);
+  const dbPath = getDatabasePath();
+  console.log("[Prisma] Using database:", dbPath);
 
-  const adapter = new PrismaBetterSqlite3({ url });
+  // Explicitly set readonly: false to ensure write access
+  const adapter = new PrismaBetterSqlite3({ url: dbPath, readonly: false });
   return new PrismaClient({ adapter });
 }
 
