@@ -117,9 +117,37 @@ model PlaygroupPlayer {
   createdAt    DateTime @default(now())
 
   // Relations
-  playgroup   Playgroup    @relation(fields: [playgroupId], references: [id], onDelete: Cascade)
-  linkedUser  User?        @relation("LinkedUser", fields: [linkedUserId], references: [id])
+  playgroup   Playgroup              @relation(fields: [playgroupId], references: [id], onDelete: Cascade)
+  linkedUser  User?                  @relation("LinkedUser", fields: [linkedUserId], references: [id])
   gamePlayers GamePlayer[]
+  decks       PlaygroupPlayerDeck[]  // Decks associated with this player
+}
+
+model PlaygroupPlayerDeck {
+  id                 String   @id @default(cuid())
+  playgroupPlayerId  String
+  name               String
+  format             String   // "commander", "standard", etc.
+
+  // Commander-specific fields
+  commander1   String?  // Primary commander card name
+  commander2   String?  // Partner commander (if applicable)
+  bracket      Int?     // EDH bracket (1-4)
+
+  // Optional decklist
+  decklistUrl  String?  // Link to Moxfield, Archidekt, etc.
+
+  // Linking to user deck after claim
+  linkedDeckId String?  @unique // When linked to a user's Deck after claim
+
+  isActive     Boolean  @default(true) // Soft delete / archive
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  playgroupPlayer PlaygroupPlayer @relation(fields: [playgroupPlayerId], references: [id], onDelete: Cascade)
+  linkedDeck      Deck?           @relation(fields: [linkedDeckId], references: [id], onDelete: SetNull)
+  gamePlayers     GamePlayer[]
 }
 
 model PlaygroupInvitation {
@@ -159,9 +187,10 @@ model Deck {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  playgroup   Playgroup?   @relation(fields: [playgroupId], references: [id], onDelete: SetNull)
-  gamePlayers GamePlayer[]
+  user                    User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playgroup               Playgroup?            @relation(fields: [playgroupId], references: [id], onDelete: SetNull)
+  gamePlayers             GamePlayer[]
+  linkedPlaygroupPlayerDeck PlaygroupPlayerDeck?  @relation // Reverse relation for linked deck
 }
 
 // ============================================
@@ -187,11 +216,12 @@ model Game {
 }
 
 model GamePlayer {
-  id                String  @id @default(cuid())
-  gameId            String
-  userId            String?  // Null if player is not a registered user
-  playgroupPlayerId String?  // For non-registered playgroup players
-  deckId            String?  // Null if deck not tracked
+  id                      String  @id @default(cuid())
+  gameId                  String
+  userId                  String?  // Null if player is not a registered user
+  playgroupPlayerId       String?  // For non-registered playgroup players
+  deckId                  String?  // For registered user decks
+  playgroupPlayerDeckId   String?  // For playgroup player decks (non-registered)
 
   // Player identification for non-users (legacy/ad-hoc)
   guestName String?  // Name for guest players without playgroup player record
@@ -208,11 +238,12 @@ model GamePlayer {
   eliminatedTurn Int?    // Turn when eliminated (null if won or game ended)
 
   // Relations
-  game            Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  user            User?            @relation(fields: [userId], references: [id])
-  playgroupPlayer PlaygroupPlayer? @relation(fields: [playgroupPlayerId], references: [id])
-  deck            Deck?            @relation(fields: [deckId], references: [id])
-  powerPlays      PowerPlay[]
+  game                 Game                 @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user                 User?                @relation(fields: [userId], references: [id])
+  playgroupPlayer      PlaygroupPlayer?     @relation(fields: [playgroupPlayerId], references: [id])
+  deck                 Deck?                @relation(fields: [deckId], references: [id])
+  playgroupPlayerDeck  PlaygroupPlayerDeck? @relation(fields: [playgroupPlayerDeckId], references: [id])
+  powerPlays           PowerPlay[]
 
   @@unique([gameId, userId])
 }

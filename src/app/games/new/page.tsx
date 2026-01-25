@@ -8,9 +8,11 @@ import {
   getUserDecks,
   getPlaygroupData,
   getPlaygroupDecks,
+  getPlaygroupPlayerDecks,
   type PlayerSetup,
   type PlaygroupData,
   type PlaygroupDeckData,
+  type PlaygroupPlayerDeckData,
 } from "./actions";
 import {
   MTG_FORMATS,
@@ -31,6 +33,7 @@ type PlayerInput = {
   playgroupPlayerId?: string;
   guestName: string;
   deckId: string;
+  playgroupPlayerDeckId: string;
   commanderUsed1: string;
   commanderUsed2: string;
   bracketUsed: string;
@@ -52,6 +55,7 @@ function NewGameForm() {
   const [userDecks, setUserDecks] = useState<Deck[]>([]);
   const [playgroupData, setPlaygroupData] = useState<PlaygroupData | null>(null);
   const [playgroupDecks, setPlaygroupDecks] = useState<PlaygroupDeckData[]>([]);
+  const [playgroupPlayerDecks, setPlaygroupPlayerDecks] = useState<PlaygroupPlayerDeckData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const showCommander = isCommanderFormat(format);
@@ -72,8 +76,8 @@ function NewGameForm() {
           }
           // Initialize with two empty player slots
           setPlayers([
-            { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
-            { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
+            { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
+            { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
           ]);
         } else {
           // Playgroup not found or user not a member
@@ -83,8 +87,8 @@ function NewGameForm() {
       } else {
         // No playgroup - use guest mode
         setPlayers([
-          { id: generateId(), type: "guest", guestName: "", deckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
-          { id: generateId(), type: "guest", guestName: "", deckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
+          { id: generateId(), type: "guest", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
+          { id: generateId(), type: "guest", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
         ]);
       }
 
@@ -98,8 +102,12 @@ function NewGameForm() {
   useEffect(() => {
     async function loadDecks() {
       if (playgroupId && playgroupData) {
-        const decks = await getPlaygroupDecks(playgroupId, format);
+        const [decks, playerDecks] = await Promise.all([
+          getPlaygroupDecks(playgroupId, format),
+          getPlaygroupPlayerDecks(playgroupId, format),
+        ]);
         setPlaygroupDecks(decks);
+        setPlaygroupPlayerDecks(playerDecks);
       } else {
         const decks = await getUserDecks(format);
         setUserDecks(decks);
@@ -113,8 +121,8 @@ function NewGameForm() {
 
   function addPlayer() {
     const newPlayer: PlayerInput = playgroupId
-      ? { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" }
-      : { id: generateId(), type: "guest", guestName: "", deckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" };
+      ? { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" }
+      : { id: generateId(), type: "guest", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" };
     setPlayers([...players, newPlayer]);
   }
 
@@ -166,24 +174,57 @@ function NewGameForm() {
     return "";
   }
 
-  function handleDeckSelect(playerId: string, deckId: string) {
-    if (playgroupId) {
-      const deck = playgroupDecks.find((d) => d.id === deckId);
+  function handleDeckSelect(playerId: string, value: string) {
+    if (!value) {
       updatePlayer(playerId, {
-        deckId,
-        commanderUsed1: deck?.commander1 || "",
-        commanderUsed2: deck?.commander2 || "",
-        bracketUsed: deck?.bracket?.toString() || "",
+        deckId: "",
+        playgroupPlayerDeckId: "",
+        commanderUsed1: "",
+        commanderUsed2: "",
+        bracketUsed: "",
       });
+      return;
+    }
+
+    if (playgroupId) {
+      // Check if it's a member deck or a player deck
+      if (value.startsWith("player_deck:")) {
+        const playerDeckId = value.replace("player_deck:", "");
+        const deck = playgroupPlayerDecks.find((d) => d.id === playerDeckId);
+        updatePlayer(playerId, {
+          deckId: "",
+          playgroupPlayerDeckId: playerDeckId,
+          commanderUsed1: deck?.commander1 || "",
+          commanderUsed2: deck?.commander2 || "",
+          bracketUsed: deck?.bracket?.toString() || "",
+        });
+      } else {
+        const deck = playgroupDecks.find((d) => d.id === value);
+        updatePlayer(playerId, {
+          deckId: value,
+          playgroupPlayerDeckId: "",
+          commanderUsed1: deck?.commander1 || "",
+          commanderUsed2: deck?.commander2 || "",
+          bracketUsed: deck?.bracket?.toString() || "",
+        });
+      }
     } else {
-      const deck = userDecks.find((d) => d.id === deckId);
+      const deck = userDecks.find((d) => d.id === value);
       updatePlayer(playerId, {
-        deckId,
+        deckId: value,
+        playgroupPlayerDeckId: "",
         commanderUsed1: deck?.commander1 || "",
         commanderUsed2: deck?.commander2 || "",
         bracketUsed: deck?.bracket?.toString() || "",
       });
     }
+  }
+
+  function getDeckSelectValue(player: PlayerInput): string {
+    if (player.playgroupPlayerDeckId) {
+      return `player_deck:${player.playgroupPlayerDeckId}`;
+    }
+    return player.deckId;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -211,6 +252,7 @@ function NewGameForm() {
         playgroupPlayerId: p.playgroupPlayerId,
         guestName: p.type === "guest" ? p.guestName.trim() : undefined,
         deckId: p.deckId || undefined,
+        playgroupPlayerDeckId: p.playgroupPlayerDeckId || undefined,
         commanderUsed1: p.commanderUsed1 || undefined,
         commanderUsed2: p.commanderUsed2 || undefined,
         bracketUsed: p.bracketUsed ? parseInt(p.bracketUsed) : undefined,
@@ -392,31 +434,50 @@ function NewGameForm() {
                       )}
 
                       {/* Deck Selection */}
-                      {(playgroupDecks.length > 0 || userDecks.length > 0) && (
+                      {(playgroupDecks.length > 0 || playgroupPlayerDecks.length > 0 || userDecks.length > 0) && (
                         <div>
                           <label className="block text-sm text-zinc-400 mb-1">
                             Deck (optional)
                           </label>
                           <select
-                            value={player.deckId}
+                            value={getDeckSelectValue(player)}
                             onChange={(e) => handleDeckSelect(player.id, e.target.value)}
                             className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500 transition-colors"
                           >
                             <option value="">No deck selected</option>
-                            {playgroupId
-                              ? playgroupDecks.map((deck) => (
-                                  <option key={deck.id} value={deck.id}>
-                                    {deck.name}
-                                    {deck.commander1 && ` - ${deck.commander1}`}
-                                    {` (${deck.createdBy.username})`}
-                                  </option>
-                                ))
-                              : userDecks.map((deck) => (
-                                  <option key={deck.id} value={deck.id}>
-                                    {deck.name}
-                                    {deck.commander1 && ` - ${deck.commander1}`}
-                                  </option>
-                                ))}
+                            {playgroupId ? (
+                              <>
+                                {playgroupDecks.length > 0 && (
+                                  <optgroup label="Member Decks">
+                                    {playgroupDecks.map((deck) => (
+                                      <option key={deck.id} value={deck.id}>
+                                        {deck.name}
+                                        {deck.commander1 && ` - ${deck.commander1}`}
+                                        {` (${deck.createdBy.username})`}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                                {playgroupPlayerDecks.length > 0 && (
+                                  <optgroup label="Player Decks">
+                                    {playgroupPlayerDecks.map((deck) => (
+                                      <option key={deck.id} value={`player_deck:${deck.id}`}>
+                                        {deck.name}
+                                        {deck.commander1 && ` - ${deck.commander1}`}
+                                        {` (${deck.playerName})`}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </>
+                            ) : (
+                              userDecks.map((deck) => (
+                                <option key={deck.id} value={deck.id}>
+                                  {deck.name}
+                                  {deck.commander1 && ` - ${deck.commander1}`}
+                                </option>
+                              ))
+                            )}
                           </select>
                         </div>
                       )}

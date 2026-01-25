@@ -51,6 +51,10 @@ Playgroups are the central organizing concept. All games, decks, and players bel
 - [x] Playgroup players (non-registered):
   - Create placeholder players for people without accounts
   - Placeholder players have a name and optional email
+  - [x] Playgroup player decks:
+    - Create decks for playgroup players (non-registered)
+    - Decks can be selected when logging games
+    - [ ] When a player is claimed, their decks can be linked to the user's deck collection
   - [ ] When a user signs up, they can claim/link a placeholder player
   - [ ] Linking merges all game history to the user account
 - [x] List user's playgroups
@@ -97,7 +101,9 @@ The core feature - logging MTG games within a playgroup.
 - [x] Add players to game:
   - Select from playgroup members (registered users)
   - Select from playgroup players (non-registered placeholders)
-  - Select deck from **any deck in the playgroup** (not just the player's own decks)
+  - Select deck from:
+    - **Any deck in the playgroup** (decks owned by members)
+    - **Playgroup player decks** (decks associated with non-registered players)
   - Alternatively, enter commander manually without a deck
   - EDH bracket for the game
 - [x] Record results:
@@ -228,7 +234,16 @@ PlaygroupMember
 PlaygroupPlayer
 ├── id, playgroupId, name, email (optional)
 ├── linkedUserId (null until claimed by a user)
+├── decks[] (PlaygroupPlayerDeck records - decks associated with this player)
 ├── gamePlayers[] (games this placeholder participated in)
+└── createdAt
+
+PlaygroupPlayerDeck
+├── id, playgroupPlayerId, name
+├── format, commander1, commander2, bracket
+├── decklistUrl (optional)
+├── linkedDeckId (null until claimed/linked to a user's Deck)
+├── isActive
 └── createdAt
 
 Deck
@@ -245,7 +260,9 @@ Game
 └── powerPlays[]
 
 GamePlayer
-├── id, gameId, deckId
+├── id, gameId
+├── deckId (for registered user decks, nullable)
+├── playgroupPlayerDeckId (for playgroup player decks, nullable)
 ├── userId (for registered users, nullable)
 ├── playgroupPlayerId (for non-registered players, nullable)
 ├── commanderUsed1, commanderUsed2, bracketUsed
@@ -383,6 +400,16 @@ src/
 | DELETE | `/api/playgroups/[id]/players/[playerId]` | Delete playgroup player |
 | POST | `/api/playgroups/[id]/players/[playerId]/claim` | Claim playgroup player |
 | POST | `/api/playgroups/[id]/players/[playerId]/invite` | Send claim invitation email |
+
+### Playgroup Player Decks API (TODO)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/playgroups/[id]/players/[playerId]/decks` | List playgroup player's decks |
+| POST | `/api/playgroups/[id]/players/[playerId]/decks` | Create deck for playgroup player |
+| PATCH | `/api/playgroups/[id]/players/[playerId]/decks/[deckId]` | Update playgroup player deck |
+| DELETE | `/api/playgroups/[id]/players/[playerId]/decks/[deckId]` | Delete playgroup player deck |
+| POST | `/api/playgroups/[id]/players/[playerId]/decks/[deckId]/link` | Link deck to user's deck (after claim) |
 
 ### Decks API
 
@@ -539,6 +566,11 @@ tests/
 | PGP-INT-008 | Cannot claim already-claimed player | Shows error |
 | PGP-INT-009 | Send claim invitation email | Email sent with token |
 | PGP-INT-010 | Claim via email token | Player linked to user |
+| PGP-INT-011 | Create deck for playgroup player | Deck created and linked to player |
+| PGP-INT-012 | Edit playgroup player deck | Changes persisted |
+| PGP-INT-013 | Delete playgroup player deck | Deck deleted |
+| PGP-INT-014 | Select playgroup player deck in game | Deck linked to game |
+| PGP-INT-015 | Link playgroup player deck to user deck | Decks merged on claim |
 
 #### E2E Tests (`tests/e2e/playgroups.spec.ts`)
 
@@ -549,6 +581,8 @@ tests/
 | PG-E2E-003 | Create playgroup player | Placeholder player created |
 | PG-E2E-004 | New user claims player | Game history transferred |
 | PG-E2E-005 | Playgroup dashboard shows data | Members, games, decks visible |
+| PG-E2E-006 | Create deck for playgroup player | Deck created and selectable in games |
+| PG-E2E-007 | Claim player links decks | Player decks can be linked to user decks |
 
 ### Deck Management Tests
 

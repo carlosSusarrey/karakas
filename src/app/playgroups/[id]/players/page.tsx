@@ -26,7 +26,7 @@ export default async function PlaygroupPlayersPage({
       players: {
         include: {
           linkedUser: { select: { username: true } },
-          _count: { select: { gamePlayers: true } },
+          _count: { select: { gamePlayers: true, decks: true } },
         },
         orderBy: { name: "asc" },
       },
@@ -158,6 +158,12 @@ export default async function PlaygroupPlayersPage({
                         <span>{player.gamesPlayed} games</span>
                         <span>{player.wins} wins</span>
                         <span>{player.winRate}% win rate</span>
+                        <Link
+                          href={`/playgroups/${id}/players/${player.id}/decks`}
+                          className="text-amber-500 hover:text-amber-400"
+                        >
+                          {player._count.decks} decks
+                        </Link>
                       </div>
                     </div>
                     <PlayerActions

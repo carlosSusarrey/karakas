@@ -12,6 +12,7 @@ export type PlayerSetup = {
   playgroupPlayerId?: string;
   guestName?: string;
   deckId?: string;
+  playgroupPlayerDeckId?: string;
   commanderUsed1?: string;
   commanderUsed2?: string;
   bracketUsed?: number;
@@ -32,6 +33,17 @@ export type PlaygroupMemberData = {
 export type PlaygroupPlayerData = {
   id: string;
   name: string;
+  decks: PlaygroupPlayerDeckData[];
+};
+
+export type PlaygroupPlayerDeckData = {
+  id: string;
+  name: string;
+  format: string;
+  commander1: string | null;
+  commander2: string | null;
+  bracket: number | null;
+  playerName: string;
 };
 
 export type PlaygroupDeckData = {
@@ -51,6 +63,7 @@ export type PlaygroupData = {
   members: PlaygroupMemberData[];
   players: PlaygroupPlayerData[];
   decks: PlaygroupDeckData[];
+  playerDecks: PlaygroupPlayerDeckData[];
 };
 
 export async function createGame(
@@ -112,6 +125,7 @@ export async function createGame(
             playgroupPlayerId: player.type === "playgroup_player" ? player.playgroupPlayerId : null,
             guestName: player.type === "guest" ? player.guestName : null,
             deckId: player.deckId || null,
+            playgroupPlayerDeckId: player.playgroupPlayerDeckId || null,
             commanderUsed1: player.commanderUsed1 || null,
             commanderUsed2: player.commanderUsed2 || null,
             bracketUsed: player.bracketUsed || null,
@@ -178,6 +192,12 @@ export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupDa
       },
       players: {
         where: { linkedUserId: null }, // Only unlinked players
+        include: {
+          decks: {
+            where: { isActive: true },
+            orderBy: { name: "asc" },
+          },
+        },
         orderBy: { name: "asc" },
       },
       decks: {
@@ -207,7 +227,27 @@ export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupDa
     players: playgroup.players.map((p) => ({
       id: p.id,
       name: p.name,
+      decks: p.decks.map((d) => ({
+        id: d.id,
+        name: d.name,
+        format: d.format,
+        commander1: d.commander1,
+        commander2: d.commander2,
+        bracket: d.bracket,
+        playerName: p.name,
+      })),
     })),
+    playerDecks: playgroup.players.flatMap((p) =>
+      p.decks.map((d) => ({
+        id: d.id,
+        name: d.name,
+        format: d.format,
+        commander1: d.commander1,
+        commander2: d.commander2,
+        bracket: d.bracket,
+        playerName: p.name,
+      }))
+    ),
     decks: playgroup.decks.map((d) => ({
       id: d.id,
       name: d.name,
@@ -263,4 +303,54 @@ export async function getPlaygroupDecks(playgroupId: string, format?: string): P
     bracket: d.bracket,
     createdBy: { username: d.user.username },
   }));
+}
+
+export async function getPlaygroupPlayerDecks(playgroupId: string, format?: string): Promise<PlaygroupPlayerDeckData[]> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return [];
+  }
+
+  // Verify user is a member
+  const membership = await db.playgroupMember.findUnique({
+    where: {
+      playgroupId_userId: {
+        playgroupId,
+        userId: user.id,
+      },
+    },
+  });
+
+  if (!membership) {
+    return [];
+  }
+
+  const players = await db.playgroupPlayer.findMany({
+    where: {
+      playgroupId,
+      linkedUserId: null, // Only unlinked players
+    },
+    include: {
+      decks: {
+        where: {
+          isActive: true,
+          ...(format && { format }),
+        },
+        orderBy: { name: "asc" },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return players.flatMap((p) =>
+    p.decks.map((d) => ({
+      id: d.id,
+      name: d.name,
+      format: d.format,
+      commander1: d.commander1,
+      commander2: d.commander2,
+      bracket: d.bracket,
+      playerName: p.name,
+    }))
+  );
 }
