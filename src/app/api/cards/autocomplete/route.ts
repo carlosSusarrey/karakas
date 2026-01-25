@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   autocompleteCards,
   getCardByName,
-  getCardImageUrl,
+  getCardImageUrlFromCard,
   canBeCommander,
   type CardSuggestion,
 } from "@/lib/scryfall";
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         if (card && canBeCommander(card)) {
           suggestions.push({
             name: card.name,
-            imageUrl: getCardImageUrl(card),
+            imageUrl: getCardImageUrlFromCard(card),
           });
         }
       }
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       if (card) {
         suggestions.push({
           name: card.name,
-          imageUrl: getCardImageUrl(card),
+          imageUrl: getCardImageUrlFromCard(card),
         });
       } else {
         // Fallback if card details couldn't be fetched

@@ -114,14 +114,14 @@ export async function getCardByName(name: string): Promise<ScryfallCard | null> 
   }
 }
 
-export function getCardImageUrl(card: ScryfallCard): string | null {
+export function getCardImageUrlFromCard(card: ScryfallCard, size: "small" | "normal" | "art_crop" = "small"): string | null {
   // Handle double-faced cards
   if (card.card_faces && card.card_faces[0]?.image_uris) {
-    return card.card_faces[0].image_uris.small;
+    return card.card_faces[0].image_uris[size];
   }
   // Handle normal cards
   if (card.image_uris) {
-    return card.image_uris.small;
+    return card.image_uris[size];
   }
   return null;
 }
@@ -143,4 +143,19 @@ export function canBeCommander(card: ScryfallCard): boolean {
     return true;
   }
   return false;
+}
+
+export async function getCardImageUrl(cardName: string): Promise<string | null> {
+  const card = await getCardByName(cardName);
+  if (!card) return null;
+
+  // Handle double-faced cards
+  if (card.card_faces && card.card_faces[0]?.image_uris) {
+    return card.card_faces[0].image_uris.normal;
+  }
+  // Handle normal cards
+  if (card.image_uris) {
+    return card.image_uris.normal;
+  }
+  return null;
 }

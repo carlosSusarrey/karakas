@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FORMAT_LABELS, BRACKET_DESCRIPTIONS, type MtgFormat, type EdhBracket } from "@/types/mtg";
 import { Header } from "@/components/header";
+import { CommanderImage } from "@/components/commander-image";
 
 export default async function DecksPage({
   searchParams,
@@ -186,36 +188,52 @@ export default async function DecksPage({
                   href={`/decks/${deck.id}`}
                   className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-zinc-700 transition-colors group"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-lg group-hover:text-amber-500 transition-colors">
-                      {deck.name}
-                    </h3>
-                    <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-1 rounded">
-                      {FORMAT_LABELS[deck.format as MtgFormat] || deck.format}
-                    </span>
-                  </div>
-                  {deck.commander1 && (
-                    <p className="text-zinc-300 text-sm mb-2">
-                      {deck.commander1}
-                      {deck.commander2 && ` + ${deck.commander2}`}
-                    </p>
-                  )}
-                  {deck.bracket && (
-                    <p className="text-zinc-500 text-xs" title={BRACKET_DESCRIPTIONS[deck.bracket as EdhBracket]}>
-                      Bracket {deck.bracket}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    {deck.playgroup && (
-                      <span className="text-xs bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded">
-                        {deck.playgroup.name}
-                      </span>
+                  <div className="flex gap-4">
+                    {deck.commander1 && (
+                      <div className="flex-shrink-0 flex gap-1">
+                        <Suspense fallback={<div className="w-12 h-16 bg-zinc-800 rounded-lg animate-pulse" />}>
+                          <CommanderImage commanderName={deck.commander1} size="small" />
+                        </Suspense>
+                        {deck.commander2 && (
+                          <Suspense fallback={<div className="w-12 h-16 bg-zinc-800 rounded-lg animate-pulse" />}>
+                            <CommanderImage commanderName={deck.commander2} size="small" />
+                          </Suspense>
+                        )}
+                      </div>
                     )}
-                    {!deck.isActive && (
-                      <span className="text-xs bg-zinc-700 text-zinc-400 px-2 py-0.5 rounded">
-                        Archived
-                      </span>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold text-lg group-hover:text-amber-500 transition-colors truncate">
+                          {deck.name}
+                        </h3>
+                        <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-1 rounded flex-shrink-0 ml-2">
+                          {FORMAT_LABELS[deck.format as MtgFormat] || deck.format}
+                        </span>
+                      </div>
+                      {deck.commander1 && (
+                        <p className="text-zinc-300 text-sm mb-1 truncate">
+                          {deck.commander1}
+                          {deck.commander2 && ` + ${deck.commander2}`}
+                        </p>
+                      )}
+                      {deck.bracket && (
+                        <p className="text-zinc-500 text-xs" title={BRACKET_DESCRIPTIONS[deck.bracket as EdhBracket]}>
+                          Bracket {deck.bracket}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-2">
+                        {deck.playgroup && (
+                          <span className="text-xs bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded">
+                            {deck.playgroup.name}
+                          </span>
+                        )}
+                        {!deck.isActive && (
+                          <span className="text-xs bg-zinc-700 text-zinc-400 px-2 py-0.5 rounded">
+                            Archived
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </Link>
               ))}

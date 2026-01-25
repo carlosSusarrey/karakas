@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
+import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/types/mtg";
 import { DeckActions } from "./deck-actions";
 import { Header } from "@/components/header";
+import { CommanderImage } from "@/components/commander-image";
 
 export default async function DeckDetailPage({
   params,
@@ -129,6 +131,20 @@ export default async function DeckDetailPage({
             </div>
             <DeckActions deck={deck} />
           </div>
+
+          {/* Commander Images */}
+          {deck.commander1 && (
+            <div className="mb-8 flex gap-4 justify-center">
+              <Suspense fallback={<div className="w-48 h-64 bg-zinc-800 rounded-lg animate-pulse" />}>
+                <CommanderImage commanderName={deck.commander1} size="large" />
+              </Suspense>
+              {deck.commander2 && (
+                <Suspense fallback={<div className="w-48 h-64 bg-zinc-800 rounded-lg animate-pulse" />}>
+                  <CommanderImage commanderName={deck.commander2} size="large" />
+                </Suspense>
+              )}
+            </div>
+          )}
 
           {/* Deck Info */}
           <div className="grid md:grid-cols-2 gap-6 mb-8">
