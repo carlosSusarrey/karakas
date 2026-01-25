@@ -26,11 +26,41 @@ Karakas is a Magic: The Gathering game tracking application that allows players 
 - [x] Password reset flow
 - [ ] Email verification
 
-### 2. Deck Management
+### 2. Playgroups
 
-**Status:** ✅ Phase 1 complete
+**Status:** 🔲 Not started
 
-Users can maintain a library of their decks for quick game logging.
+Playgroups are the central organizing concept. All games, decks, and players belong to a playgroup.
+
+**Requirements:**
+- [ ] Create/edit/delete playgroups
+- [ ] Playgroup fields:
+  - Name
+  - Description (optional)
+  - Default format (optional)
+- [ ] Membership management:
+  - Invite users to playgroup (by email or username)
+  - Accept/decline playgroup invitations
+  - Leave playgroup
+  - Remove members (owner/admin only)
+  - Transfer ownership
+- [ ] Playgroup roles:
+  - Owner (creator, full control)
+  - Admin (can manage members and settings)
+  - Member (can log games, add decks)
+- [ ] Playgroup players (non-registered):
+  - Create placeholder players for people without accounts
+  - Placeholder players have a name and optional email
+  - When a user signs up, they can claim/link a placeholder player
+  - Linking merges all game history to the user account
+- [ ] List user's playgroups
+- [ ] Playgroup dashboard showing recent games and members
+
+### 3. Deck Management
+
+**Status:** ✅ Phase 1 complete (needs playgroup update)
+
+Decks belong to a playgroup and can be used by any member of that playgroup.
 
 **Requirements:**
 - [x] Create/edit/delete decks
@@ -41,26 +71,34 @@ Users can maintain a library of their decks for quick game logging.
   - Partner commander - if applicable
   - EDH Bracket (1-4) - for Commander format
   - Decklist URL (Moxfield, Archidekt, etc.)
+- [ ] **Playgroup association:**
+  - Deck belongs to a playgroup
+  - Deck has an owner (the user who created it)
+  - Any playgroup member can use any deck in games
 - [x] Archive/unarchive decks (soft delete)
 - [x] List view with filtering by format
+- [ ] Filter decks by playgroup
 - [ ] Deck detail page showing game history with that deck (requires Game Logging)
 
-### 3. Game Logging
+### 4. Game Logging
 
 **Status:** 🔲 Not started
 
-The core feature - logging MTG games with detailed information.
+The core feature - logging MTG games within a playgroup.
 
 **Requirements:**
 - [ ] Create new game log
 - [ ] Game fields:
+  - **Playgroup** (required - game belongs to a playgroup)
   - Format
   - Date/time played
   - Total turns
   - Notes (optional)
 - [ ] Add players to game:
-  - Select registered user OR enter guest name
-  - Select deck from user's library OR enter commander manually
+  - Select from playgroup members (registered users)
+  - Select from playgroup players (non-registered placeholders)
+  - Select deck from **any deck in the playgroup** (not just the player's own decks)
+  - Alternatively, enter commander manually without a deck
   - EDH bracket for the game
 - [ ] Record results:
   - Winner
@@ -71,7 +109,7 @@ The core feature - logging MTG games with detailed information.
 - [ ] Delete games
 - [ ] Game detail view
 
-### 4. Power Plays
+### 5. Power Plays
 
 **Status:** 🔲 Not started
 
@@ -103,7 +141,7 @@ Track notable plays that happen during games.
 - [ ] Edit/delete power plays
 - [ ] View power plays on game detail page
 
-### 5. Statistics Dashboard
+### 6. Statistics Dashboard
 
 **Status:** 🔲 Not started
 
@@ -135,7 +173,7 @@ Aggregate statistics from logged games.
   - Format
   - Specific deck
 
-### 6. Social Features
+### 7. Social Features
 
 **Status:** 🔲 Not started
 
@@ -164,31 +202,56 @@ User
 ├── id, email, username, passwordHash, avatarUrl
 ├── oauthAccounts[] (OAuth connections)
 ├── sessions[] (active sessions)
-├── decks[] (user's decks)
+├── playgroupMemberships[] (PlaygroupMember records)
+├── decksCreated[] (decks this user created)
 ├── gamePlayers[] (games participated in)
-└── gamesCreated[] (games logged by user)
+├── gamesCreated[] (games logged by user)
+└── linkedPlaygroupPlayer (optional - claimed placeholder)
+
+Playgroup
+├── id, name, description, defaultFormat
+├── ownerId (User who owns the playgroup)
+├── members[] (PlaygroupMember records)
+├── players[] (PlaygroupPlayer records - non-registered)
+├── decks[] (all decks in this playgroup)
+├── games[] (all games in this playgroup)
+└── createdAt, updatedAt
+
+PlaygroupMember
+├── id, playgroupId, userId
+├── role (owner, admin, member)
+├── joinedAt
+└── invitedBy (User who sent the invite)
+
+PlaygroupPlayer
+├── id, playgroupId, name, email (optional)
+├── linkedUserId (null until claimed by a user)
+├── gamePlayers[] (games this placeholder participated in)
+└── createdAt
 
 Deck
-├── id, userId, name, format
+├── id, playgroupId, createdById (User who created it)
+├── name, format
 ├── commander1, commander2, bracket
 ├── decklistUrl, isActive
 └── gamePlayers[] (games played with this deck)
 
 Game
-├── id, createdById, format
+├── id, playgroupId, createdById, format
 ├── totalTurns, notes, playedAt
 ├── players[] (GamePlayer records)
 └── powerPlays[]
 
 GamePlayer
-├── id, gameId, userId, deckId
-├── guestName (for non-registered players)
+├── id, gameId, deckId
+├── userId (for registered users, nullable)
+├── playgroupPlayerId (for non-registered players, nullable)
 ├── commanderUsed1, commanderUsed2, bracketUsed
 ├── placement, isWinner, isFirstOut, eliminatedTurn
 └── powerPlays[]
 
 PowerPlay
-├── id, gameId, gamePlayerId, userId
+├── id, gameId, gamePlayerId
 ├── turn, type, description, cardName
 └── createdAt
 ```
@@ -203,15 +266,27 @@ src/
 │   ├── login/            # Login page
 │   ├── signup/           # Registration page
 │   ├── logout/           # Logout route
-│   ├── decks/            # Deck management (TODO)
-│   │   ├── page.tsx      # Deck list
-│   │   ├── new/          # Create deck
+│   ├── playgroups/       # Playgroup management
+│   │   ├── page.tsx      # List user's playgroups
+│   │   ├── new/          # Create playgroup
+│   │   └── [id]/         # Playgroup dashboard
+│   │       ├── page.tsx  # Playgroup overview
+│   │       ├── members/  # Member management
+│   │       ├── players/  # Playgroup players (non-registered)
+│   │       ├── decks/    # Playgroup decks
+│   │       ├── games/    # Playgroup games
+│   │       └── settings/ # Playgroup settings
+│   ├── decks/            # Deck management
+│   │   ├── page.tsx      # Deck list (all playgroups)
+│   │   ├── new/          # Create deck (select playgroup)
 │   │   └── [id]/         # Deck detail/edit
-│   ├── games/            # Game logging (TODO)
-│   │   ├── page.tsx      # Game history
-│   │   ├── new/          # Log new game
+│   ├── games/            # Game logging
+│   │   ├── page.tsx      # Game history (all playgroups)
+│   │   ├── new/          # Log new game (select playgroup)
 │   │   └── [id]/         # Game detail/edit
-│   └── stats/            # Statistics (TODO)
+│   ├── stats/            # Statistics (TODO)
+│   └── claim/            # Claim playgroup player
+│       └── [token]/      # Claim flow with token
 ├── lib/
 │   ├── db.ts             # Prisma client
 │   ├── auth.ts           # Auth utilities
@@ -232,27 +307,41 @@ src/
 - Support for commander formats with bracket
 - Archive/unarchive functionality
 
-### Phase 2: Basic Game Logging ⬅️ Next
-- Create game logging form
-- Add players and results
-- Game history list
+### Phase 2: Playgroups ⬅️ Next
+- Playgroup CRUD (create, edit, delete)
+- Playgroup membership (invite, accept, leave)
+- Playgroup players (non-registered placeholders)
+- Migrate existing decks to require playgroup association
+- Playgroup dashboard with member list
 
-### Phase 3: Power Plays
+### Phase 3: Playgroup-Based Game Logging
+- Create game logging form within playgroup context
+- Select players from playgroup members + playgroup players
+- Select decks from any deck in the playgroup
+- Add players and results
+- Game history list (filterable by playgroup)
+
+### Phase 4: Player Claiming
+- Allow new users to claim existing playgroup players
+- Merge game history when claiming
+- Email-based claim invitations
+
+### Phase 5: Power Plays
 - Add power play tracking to game logging
 - Power play types and descriptions
 
-### Phase 4: Statistics
+### Phase 6: Statistics
 - Personal stats dashboard
 - Deck performance stats
 - Win rate calculations
+- Playgroup-level statistics
 
-### Phase 5: Social Features
+### Phase 7: Social Features
 - Friend system
-- Playgroup stats
+- Cross-playgroup stats
 - Leaderboards
 
-### Phase 6: Polish
-- OAuth integration
+### Phase 8: Polish
 - Email verification
 - Mobile responsiveness improvements
 - Performance optimization
@@ -270,13 +359,39 @@ src/
 
 ## API Routes
 
+### Playgroups API (TODO)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/playgroups` | List user's playgroups |
+| POST | `/api/playgroups` | Create new playgroup |
+| GET | `/api/playgroups/[id]` | Get playgroup details |
+| PATCH | `/api/playgroups/[id]` | Update playgroup |
+| DELETE | `/api/playgroups/[id]` | Delete playgroup |
+| POST | `/api/playgroups/[id]/invite` | Invite user to playgroup |
+| POST | `/api/playgroups/[id]/join` | Accept playgroup invitation |
+| DELETE | `/api/playgroups/[id]/leave` | Leave playgroup |
+| DELETE | `/api/playgroups/[id]/members/[userId]` | Remove member from playgroup |
+
+### Playgroup Players API (TODO)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/playgroups/[id]/players` | List playgroup players |
+| POST | `/api/playgroups/[id]/players` | Create playgroup player (placeholder) |
+| PATCH | `/api/playgroups/[id]/players/[playerId]` | Update playgroup player |
+| DELETE | `/api/playgroups/[id]/players/[playerId]` | Delete playgroup player |
+| POST | `/api/playgroups/[id]/players/[playerId]/claim` | Claim playgroup player |
+| POST | `/api/playgroups/[id]/players/[playerId]/invite` | Send claim invitation email |
+
 ### Decks API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/decks` | List user's decks (TODO) |
-| POST | `/api/decks` | Create new deck (TODO) |
-| GET | `/api/decks/[id]` | Get deck details (TODO) |
+| GET | `/api/decks` | List user's decks (across all playgroups) |
+| GET | `/api/playgroups/[id]/decks` | List decks in a playgroup |
+| POST | `/api/playgroups/[id]/decks` | Create deck in playgroup |
+| GET | `/api/decks/[id]` | Get deck details |
 | PATCH | `/api/decks/[id]` | Update deck |
 | DELETE | `/api/decks/[id]` | Delete deck |
 
@@ -284,8 +399,9 @@ src/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/games` | List user's games |
-| POST | `/api/games` | Create new game |
+| GET | `/api/games` | List user's games (across all playgroups) |
+| GET | `/api/playgroups/[id]/games` | List games in a playgroup |
+| POST | `/api/playgroups/[id]/games` | Create game in playgroup |
 | GET | `/api/games/[id]` | Get game details |
 | PATCH | `/api/games/[id]` | Update game |
 | DELETE | `/api/games/[id]` | Delete game |
@@ -304,7 +420,7 @@ src/
 |--------|----------|-------------|
 | GET | `/api/stats/personal` | Get personal statistics |
 | GET | `/api/stats/decks` | Get deck statistics |
-| GET | `/api/stats/playgroup` | Get playgroup statistics |
+| GET | `/api/playgroups/[id]/stats` | Get playgroup statistics |
 
 ---
 
@@ -335,14 +451,17 @@ src/
 │   ├── session.test.ts
 │   └── mtg.test.ts
 ├── app/
+│   ├── playgroups/
+│   │   └── __tests__/   # Playgroup integration tests
 │   ├── decks/
-│   │   └── __tests__/   # Component/integration tests
+│   │   └── __tests__/   # Deck integration tests
 │   ├── games/
-│   │   └── __tests__/
+│   │   └── __tests__/   # Game integration tests
 │   └── ...
 tests/
 └── e2e/                 # Playwright E2E tests
     ├── auth.spec.ts
+    ├── playgroups.spec.ts
     ├── decks.spec.ts
     ├── games.spec.ts
     └── stats.spec.ts
@@ -386,6 +505,51 @@ tests/
 | AUTH-E2E-003 | Protected routes redirect | Unauthenticated users redirected to login |
 | AUTH-E2E-004 | Session persists across pages | User stays logged in |
 
+### Playgroup Tests
+
+#### Integration Tests (`src/app/playgroups/__tests__/playgroups.test.ts`)
+
+| Test ID | Description | Expected Result |
+|---------|-------------|-----------------|
+| PG-INT-001 | Create playgroup with valid data | Playgroup created, user is owner |
+| PG-INT-002 | Create playgroup without name | Shows validation error |
+| PG-INT-003 | Edit playgroup updates fields | Changes persisted |
+| PG-INT-004 | Delete playgroup removes all data | Playgroup, members, decks, games deleted |
+| PG-INT-005 | Only owner can delete playgroup | Returns 403 for non-owners |
+| PG-INT-006 | Invite user to playgroup | Invitation sent |
+| PG-INT-007 | Accept playgroup invitation | User becomes member |
+| PG-INT-008 | Decline playgroup invitation | Invitation removed |
+| PG-INT-009 | Leave playgroup | Membership removed |
+| PG-INT-010 | Owner cannot leave (must transfer) | Shows error message |
+| PG-INT-011 | Remove member from playgroup | Member removed |
+| PG-INT-012 | Only admin/owner can remove members | Returns 403 for members |
+| PG-INT-013 | Transfer ownership | New owner set, old becomes admin |
+
+#### Playgroup Players Tests (`src/app/playgroups/__tests__/players.test.ts`)
+
+| Test ID | Description | Expected Result |
+|---------|-------------|-----------------|
+| PGP-INT-001 | Create playgroup player | Player created |
+| PGP-INT-002 | Create player without name | Shows validation error |
+| PGP-INT-003 | Edit playgroup player | Changes persisted |
+| PGP-INT-004 | Delete playgroup player | Player deleted |
+| PGP-INT-005 | Cannot delete player with games | Shows error or cascades |
+| PGP-INT-006 | Claim playgroup player | Player linked to user |
+| PGP-INT-007 | Claim merges game history | All games show user |
+| PGP-INT-008 | Cannot claim already-claimed player | Shows error |
+| PGP-INT-009 | Send claim invitation email | Email sent with token |
+| PGP-INT-010 | Claim via email token | Player linked to user |
+
+#### E2E Tests (`tests/e2e/playgroups.spec.ts`)
+
+| Test ID | Description | Expected Result |
+|---------|-------------|-----------------|
+| PG-E2E-001 | Full playgroup CRUD flow | Create, view, edit, delete works |
+| PG-E2E-002 | Invite and join flow | User can join via invitation |
+| PG-E2E-003 | Create playgroup player | Placeholder player created |
+| PG-E2E-004 | New user claims player | Game history transferred |
+| PG-E2E-005 | Playgroup dashboard shows data | Members, games, decks visible |
+
 ### Deck Management Tests
 
 #### Unit Tests (`src/__tests__/mtg.test.ts`)
@@ -428,15 +592,19 @@ tests/
 | Test ID | Description | Expected Result |
 |---------|-------------|-----------------|
 | GAME-INT-001 | Create game with valid data | Game created with players |
-| GAME-INT-002 | Create game requires at least 2 players | Shows validation error |
-| GAME-INT-003 | Game must have exactly one winner | Shows error if none/multiple |
-| GAME-INT-004 | Add guest player (no user account) | Guest name stored |
-| GAME-INT-005 | Player can use existing deck | Deck linked to game |
-| GAME-INT-006 | Player can enter commander manually | Commander stored without deck |
-| GAME-INT-007 | Edit game updates all fields | Changes persisted |
-| GAME-INT-008 | Delete game removes all related data | Game and GamePlayers deleted |
-| GAME-INT-009 | Elimination order is valid | Placements are sequential |
-| GAME-INT-010 | Cannot set eliminated turn > total turns | Shows validation error |
+| GAME-INT-002 | Create game requires playgroup | Shows validation error |
+| GAME-INT-003 | Create game requires at least 2 players | Shows validation error |
+| GAME-INT-004 | Game must have exactly one winner | Shows error if none/multiple |
+| GAME-INT-005 | Add playgroup player (non-registered) | PlaygroupPlayer linked |
+| GAME-INT-006 | Add registered user from playgroup | User linked to game |
+| GAME-INT-007 | Player can use any playgroup deck | Deck linked to game |
+| GAME-INT-008 | Player can enter commander manually | Commander stored without deck |
+| GAME-INT-009 | Edit game updates all fields | Changes persisted |
+| GAME-INT-010 | Delete game removes all related data | Game and GamePlayers deleted |
+| GAME-INT-011 | Elimination order is valid | Placements are sequential |
+| GAME-INT-012 | Cannot set eliminated turn > total turns | Shows validation error |
+| GAME-INT-013 | Only playgroup members can create games | Returns 403 for non-members |
+| GAME-INT-014 | Cannot select deck from other playgroup | Shows validation error |
 
 #### E2E Tests (`tests/e2e/games.spec.ts`)
 
@@ -444,9 +612,11 @@ tests/
 |---------|-------------|-----------------|
 | GAME-E2E-001 | Full game logging flow | Create game with all details |
 | GAME-E2E-002 | Add/remove players dynamically | Player list updates correctly |
-| GAME-E2E-003 | Select deck from dropdown | Deck info auto-fills |
-| GAME-E2E-004 | Game history shows recent games | List displays correctly |
-| GAME-E2E-005 | Game detail page shows all info | All data visible |
+| GAME-E2E-003 | Select deck from playgroup | Deck info auto-fills |
+| GAME-E2E-004 | Mix registered and placeholder players | Both types work |
+| GAME-E2E-005 | Game history shows recent games | List displays correctly |
+| GAME-E2E-006 | Game detail page shows all info | All data visible |
+| GAME-E2E-007 | Filter games by playgroup | Only playgroup games shown |
 
 ### Power Play Tests
 
