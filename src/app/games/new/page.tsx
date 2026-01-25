@@ -81,15 +81,13 @@ function NewGameForm() {
           ]);
         } else {
           // Playgroup not found or user not a member
-          router.push("/games/new");
+          router.push("/playgroups");
           return;
         }
       } else {
-        // No playgroup - use guest mode
-        setPlayers([
-          { id: generateId(), type: "guest", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
-          { id: generateId(), type: "guest", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
-        ]);
+        // No playgroup - redirect to playgroups page
+        router.push("/playgroups");
+        return;
       }
 
       setIsLoading(false);
@@ -232,16 +230,9 @@ function NewGameForm() {
     setError(null);
 
     // Validate players
-    if (playgroupId) {
-      if (players.some((p) => !p.userId && !p.playgroupPlayerId)) {
-        setError("All players must be selected");
-        return;
-      }
-    } else {
-      if (players.some((p) => !p.guestName.trim())) {
-        setError("All players must have a name");
-        return;
-      }
+    if (players.some((p) => !p.userId && !p.playgroupPlayerId)) {
+      setError("All players must be selected");
+      return;
     }
 
     startTransition(async () => {
@@ -306,23 +297,13 @@ function NewGameForm() {
       <main className="flex-1 px-6 py-8">
         <div className="max-w-3xl mx-auto">
           <div className="mb-8">
-            {playgroupData ? (
-              <Link href={`/playgroups/${playgroupId}`} className="text-zinc-400 hover:text-zinc-300 text-sm">
-                ← Back to {playgroupData.name}
-              </Link>
-            ) : (
-              <Link href="/games" className="text-zinc-400 hover:text-zinc-300 text-sm">
-                ← Back to Games
-              </Link>
-            )}
+            <Link href={`/playgroups/${playgroupId}`} className="text-zinc-400 hover:text-zinc-300 text-sm">
+              ← Back to {playgroupData?.name}
+            </Link>
             <h1 className="text-3xl font-bold mt-4">Start New Game</h1>
-            {playgroupData ? (
-              <p className="text-zinc-400 mt-2">
-                Playing in <span className="text-amber-500">{playgroupData.name}</span>
-              </p>
-            ) : (
-              <p className="text-zinc-400 mt-2">Set up the players and start tracking your game.</p>
-            )}
+            <p className="text-zinc-400 mt-2">
+              Playing in <span className="text-amber-500">{playgroupData?.name}</span>
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
@@ -557,21 +538,12 @@ function NewGameForm() {
               >
                 {isPending ? "Starting..." : "Start Game"}
               </button>
-              {playgroupData ? (
-                <Link
-                  href={`/playgroups/${playgroupId}`}
-                  className="border border-zinc-700 hover:border-zinc-500 text-zinc-300 px-6 py-3 rounded-lg transition-colors"
-                >
-                  Cancel
-                </Link>
-              ) : (
-                <Link
-                  href="/games"
-                  className="border border-zinc-700 hover:border-zinc-500 text-zinc-300 px-6 py-3 rounded-lg transition-colors"
-                >
-                  Cancel
-                </Link>
-              )}
+              <Link
+              href={`/playgroups/${playgroupId}`}
+              className="border border-zinc-700 hover:border-zinc-500 text-zinc-300 px-6 py-3 rounded-lg transition-colors"
+            >
+              Cancel
+            </Link>
             </div>
           </form>
         </div>

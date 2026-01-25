@@ -360,10 +360,10 @@ export default async function StatsPage({
                 Start logging games to see your statistics here.
               </p>
               <Link
-                href="/games/new"
+                href="/playgroups"
                 className="inline-block bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-lg transition-colors"
               >
-                Log a Game
+                Go to Playgroups
               </Link>
             </div>
           ) : (

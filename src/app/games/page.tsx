@@ -177,10 +177,10 @@ export default async function GamesPage({
               </p>
             </div>
             <Link
-              href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/games/new"}
+              href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/playgroups"}
               className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg transition-colors"
             >
-              Start New Game
+              {playgroupId ? "Start New Game" : "Go to Playgroups"}
             </Link>
           </div>
 
@@ -272,10 +272,10 @@ export default async function GamesPage({
                     : "Start tracking your first game to see it here."}
                 </p>
                 <Link
-                  href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/games/new"}
+                  href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/playgroups"}
                   className="inline-block bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-lg transition-colors"
                 >
-                  Start a Game
+                  {playgroupId ? "Start a Game" : "Go to Playgroups"}
                 </Link>
               </div>
             ) : completedGames.length === 0 ? (

@@ -88,10 +88,10 @@ export default async function HomePage() {
           </p>
           {user ? (
             <Link
-              href="/games/new"
+              href="/playgroups"
               className="inline-block bg-amber-600 hover:bg-amber-500 text-white text-lg px-8 py-3 rounded-lg transition-colors"
             >
-              Log a Game
+              Go to Playgroups
             </Link>
           ) : (
             <div className="flex gap-4 justify-center">
