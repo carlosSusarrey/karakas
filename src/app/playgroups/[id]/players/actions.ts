@@ -308,6 +308,8 @@ export async function claimPlayer(token: string) {
   });
 
   try {
+    let decksCreated = 0;
+
     await db.$transaction(async (tx) => {
       // Link the player to the user
       await tx.playgroupPlayer.update({
@@ -332,6 +334,40 @@ export async function claimPlayer(token: string) {
         data: { userId: user.id },
       });
 
+      // Create user decks from playgroup player decks and link them
+      for (const ppDeck of player.decks) {
+        if (!ppDeck.linkedDeckId && ppDeck.isActive) {
+          // Create a new user deck from the playgroup player deck
+          const newDeck = await tx.deck.create({
+            data: {
+              userId: user.id,
+              playgroupId: player.playgroupId,
+              name: ppDeck.name,
+              format: ppDeck.format,
+              commander1: ppDeck.commander1,
+              commander2: ppDeck.commander2,
+              bracket: ppDeck.bracket,
+              decklistUrl: ppDeck.decklistUrl,
+              isActive: ppDeck.isActive,
+            },
+          });
+
+          // Link the playgroup player deck to the new user deck
+          await tx.playgroupPlayerDeck.update({
+            where: { id: ppDeck.id },
+            data: { linkedDeckId: newDeck.id },
+          });
+
+          // Update all game history to use the new deck
+          await tx.gamePlayer.updateMany({
+            where: { playgroupPlayerDeckId: ppDeck.id },
+            data: { deckId: newDeck.id },
+          });
+
+          decksCreated++;
+        }
+      }
+
       // Delete the claim token
       await tx.playgroupPlayerClaimToken.delete({
         where: { id: claimToken.id },
@@ -343,7 +379,7 @@ export async function claimPlayer(token: string) {
       playgroupId: player.playgroupId,
       playgroupName: player.playgroup.name,
       gamesLinked: player.gamePlayers.length,
-      decksLinked: player.decks.length,
+      decksLinked: decksCreated,
     };
   } catch (error) {
     console.error("Failed to claim player:", error);

@@ -64,6 +64,12 @@ export default async function PlaygroupsPage() {
             >
               Stats
             </Link>
+            <Link
+              href="/friends"
+              className="text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              Friends
+            </Link>
             <span className="text-zinc-500">|</span>
             <span className="text-zinc-300">{user.username}</span>
             <Link

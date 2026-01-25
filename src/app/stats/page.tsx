@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { FORMAT_LABELS, type MtgFormat } from "@/types/mtg";
+import { FORMAT_LABELS, POWER_PLAY_LABELS, type MtgFormat, type PowerPlayType } from "@/types/mtg";
 
 export default async function StatsPage({
   searchParams,
@@ -61,6 +61,9 @@ export default async function StatsPage({
           deck: { select: { id: true, name: true, commander1: true } },
         },
       },
+      powerPlays: {
+        select: { id: true, type: true, gamePlayerId: true },
+      },
     },
     orderBy: { playedAt: "desc" },
   });
@@ -83,6 +86,11 @@ export default async function StatsPage({
 
   // Track opponents
   const opponentStats: Record<string, { name: string; games: number; winsAgainst: number }> = {};
+
+  // Track power play stats
+  const powerPlayStats: Record<string, { count: number }> = {};
+  let totalPowerPlays = 0;
+  let gamesWithPowerPlays = 0;
 
   for (const game of games) {
     // Find the user's player record in this game
@@ -170,6 +178,19 @@ export default async function StatsPage({
         opponentStats[opponentId].winsAgainst++;
       }
     }
+
+    // Track power play stats (all power plays in games the user participated in)
+    if (game.powerPlays.length > 0) {
+      gamesWithPowerPlays++;
+      for (const powerPlay of game.powerPlays) {
+        totalPowerPlays++;
+        const type = powerPlay.type;
+        if (!powerPlayStats[type]) {
+          powerPlayStats[type] = { count: 0 };
+        }
+        powerPlayStats[type].count++;
+      }
+    }
   }
 
   // Calculate derived stats
@@ -199,6 +220,15 @@ export default async function StatsPage({
     .map(([id, stats]) => ({ id, ...stats, winRate: stats.games > 0 ? Math.round((stats.winsAgainst / stats.games) * 100) : 0 }))
     .sort((a, b) => b.games - a.games)
     .slice(0, 5);
+
+  // Sort power play stats by count
+  const topPowerPlays = Object.entries(powerPlayStats)
+    .map(([type, stats]) => ({ type, ...stats }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // Calculate power plays per game average
+  const powerPlaysPerGame = totalGames > 0 ? (totalPowerPlays / totalGames).toFixed(1) : "0";
 
   // Get unique formats for filter
   const availableFormats = [...new Set(games.map((g) => g.format))].sort();
@@ -232,6 +262,12 @@ export default async function StatsPage({
             </Link>
             <Link href="/stats" className="text-zinc-100 font-medium">
               Stats
+            </Link>
+            <Link
+              href="/friends"
+              className="text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              Friends
             </Link>
             <span className="text-zinc-500">|</span>
             <span className="text-zinc-300">{user.username}</span>
@@ -403,7 +439,7 @@ export default async function StatsPage({
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-2 gap-6 mb-8">
                 {/* Top Decks */}
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                   <h2 className="text-lg font-semibold mb-4">Top Decks</h2>
@@ -455,6 +491,54 @@ export default async function StatsPage({
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Power Play Stats */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <h2 className="text-lg font-semibold mb-4">Power Play Stats</h2>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <div className="text-zinc-400 text-sm">Total Power Plays</div>
+                      <div className="text-2xl font-bold">{totalPowerPlays}</div>
+                    </div>
+                    <div>
+                      <div className="text-zinc-400 text-sm">Per Game Avg</div>
+                      <div className="text-2xl font-bold text-amber-500">{powerPlaysPerGame}</div>
+                    </div>
+                  </div>
+                  {topPowerPlays.length === 0 ? (
+                    <p className="text-zinc-500">No power plays recorded</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium text-zinc-400">Most Common Types</h3>
+                      {topPowerPlays.map((pp) => (
+                        <div key={pp.type} className="flex items-center justify-between">
+                          <div className="font-medium">
+                            {POWER_PLAY_LABELS[pp.type as PowerPlayType] || pp.type}
+                          </div>
+                          <div className="text-zinc-400">
+                            {pp.count} {pp.count === 1 ? "time" : "times"}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Games with Power Plays */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <h2 className="text-lg font-semibold mb-4">Power Play Coverage</h2>
+                  <div className="text-center py-4">
+                    <div className="text-4xl font-bold text-amber-500 mb-2">
+                      {totalGames > 0 ? Math.round((gamesWithPowerPlays / totalGames) * 100) : 0}%
+                    </div>
+                    <div className="text-zinc-400">of games have recorded power plays</div>
+                    <div className="text-zinc-500 text-sm mt-2">
+                      {gamesWithPowerPlays} of {totalGames} games
+                    </div>
+                  </div>
                 </div>
               </div>
             </>

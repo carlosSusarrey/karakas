@@ -7,7 +7,7 @@ import { FORMAT_LABELS, BRACKET_DESCRIPTIONS, type MtgFormat, type EdhBracket } 
 export default async function DecksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ format?: string; archived?: string }>;
+  searchParams: Promise<{ format?: string; archived?: string; playgroup?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) {
@@ -17,19 +17,41 @@ export default async function DecksPage({
   const params = await searchParams;
   const formatFilter = params.format;
   const showArchived = params.archived === "true";
+  const playgroupFilter = params.playgroup;
+
+  // Get user's playgroups for the filter
+  const userPlaygroups = await db.playgroupMember.findMany({
+    where: { userId: user.id },
+    include: {
+      playgroup: {
+        select: { id: true, name: true },
+      },
+    },
+    orderBy: { playgroup: { name: "asc" } },
+  });
 
   const decks = await db.deck.findMany({
     where: {
       userId: user.id,
       isActive: !showArchived,
       ...(formatFilter && { format: formatFilter }),
+      ...(playgroupFilter && { playgroupId: playgroupFilter }),
+    },
+    include: {
+      playgroup: {
+        select: { id: true, name: true },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
 
   const formats = await db.deck.groupBy({
     by: ["format"],
-    where: { userId: user.id, isActive: !showArchived },
+    where: {
+      userId: user.id,
+      isActive: !showArchived,
+      ...(playgroupFilter && { playgroupId: playgroupFilter }),
+    },
     _count: true,
   });
 
@@ -66,6 +88,12 @@ export default async function DecksPage({
             >
               Stats
             </Link>
+            <Link
+              href="/friends"
+              className="text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              Friends
+            </Link>
             <span className="text-zinc-500">|</span>
             <span className="text-zinc-300">{user.username}</span>
             <Link
@@ -98,41 +126,81 @@ export default async function DecksPage({
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            <Link
-              href="/decks"
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                !formatFilter && !showArchived
-                  ? "bg-amber-600 text-white"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-              }`}
-            >
-              All ({decks.length})
-            </Link>
-            {formats.map((f) => (
+          <div className="flex flex-wrap items-center gap-4 mb-6">
+            {/* Playgroup Filter */}
+            {userPlaygroups.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <span className="text-zinc-400 text-sm self-center mr-1">Playgroup:</span>
+                <Link
+                  href={`/decks${formatFilter ? `?format=${formatFilter}` : ""}${showArchived ? `${formatFilter ? "&" : "?"}archived=true` : ""}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    !playgroupFilter
+                      ? "bg-amber-600 text-white"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  }`}
+                >
+                  All
+                </Link>
+                {userPlaygroups.map(({ playgroup: pg }) => (
+                  <Link
+                    key={pg.id}
+                    href={`/decks?playgroup=${pg.id}${formatFilter ? `&format=${formatFilter}` : ""}${showArchived ? "&archived=true" : ""}`}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      playgroupFilter === pg.id
+                        ? "bg-amber-600 text-white"
+                        : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    }`}
+                  >
+                    {pg.name}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* Format Filter */}
+            <div className="flex flex-wrap gap-2">
+              <span className="text-zinc-400 text-sm self-center mr-1">Format:</span>
               <Link
-                key={f.format}
-                href={`/decks?format=${f.format}`}
+                href={`/decks${playgroupFilter ? `?playgroup=${playgroupFilter}` : ""}${showArchived ? `${playgroupFilter ? "&" : "?"}archived=true` : ""}`}
                 className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                  formatFilter === f.format
+                  !formatFilter && !showArchived
                     ? "bg-amber-600 text-white"
                     : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
                 }`}
               >
-                {FORMAT_LABELS[f.format as MtgFormat] || f.format} ({f._count})
+                All ({decks.length})
               </Link>
-            ))}
-            <span className="text-zinc-600">|</span>
-            <Link
-              href={showArchived ? "/decks" : "/decks?archived=true"}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                showArchived
-                  ? "bg-zinc-600 text-white"
-                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-              }`}
-            >
-              {showArchived ? "Show Active" : "Show Archived"}
-            </Link>
+              {formats.map((f) => (
+                <Link
+                  key={f.format}
+                  href={`/decks?${playgroupFilter ? `playgroup=${playgroupFilter}&` : ""}format=${f.format}${showArchived ? "&archived=true" : ""}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    formatFilter === f.format
+                      ? "bg-amber-600 text-white"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  }`}
+                >
+                  {FORMAT_LABELS[f.format as MtgFormat] || f.format} ({f._count})
+                </Link>
+              ))}
+            </div>
+
+            {/* Archive Toggle */}
+            <div>
+              <Link
+                href={showArchived
+                  ? `/decks${playgroupFilter ? `?playgroup=${playgroupFilter}` : ""}${formatFilter ? `${playgroupFilter ? "&" : "?"}format=${formatFilter}` : ""}`
+                  : `/decks?${playgroupFilter ? `playgroup=${playgroupFilter}&` : ""}${formatFilter ? `format=${formatFilter}&` : ""}archived=true`
+                }
+                className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                  showArchived
+                    ? "bg-zinc-600 text-white"
+                    : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                }`}
+              >
+                {showArchived ? "Show Active" : "Show Archived"}
+              </Link>
+            </div>
           </div>
 
           {/* Deck List */}
@@ -183,11 +251,18 @@ export default async function DecksPage({
                       Bracket {deck.bracket}
                     </p>
                   )}
-                  {!deck.isActive && (
-                    <span className="inline-block mt-2 text-xs bg-zinc-700 text-zinc-400 px-2 py-0.5 rounded">
-                      Archived
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    {deck.playgroup && (
+                      <span className="text-xs bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded">
+                        {deck.playgroup.name}
+                      </span>
+                    )}
+                    {!deck.isActive && (
+                      <span className="text-xs bg-zinc-700 text-zinc-400 px-2 py-0.5 rounded">
+                        Archived
+                      </span>
+                    )}
+                  </div>
                 </Link>
               ))}
             </div>

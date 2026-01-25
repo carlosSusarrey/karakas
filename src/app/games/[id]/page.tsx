@@ -8,6 +8,7 @@ import {
   type MtgFormat,
   type PowerPlayType,
 } from "@/types/mtg";
+import { ShareButton } from "./share-button";
 
 export default async function GameDetailPage({
   params,
@@ -174,14 +175,35 @@ export default async function GameDetailPage({
                 </div>
                 <div className="text-zinc-400 text-sm">{formatDate(game.playedAt)}</div>
               </div>
-              {isCreator && (
-                <Link
-                  href={`/games/${id}/edit`}
-                  className="text-zinc-400 hover:text-zinc-200 text-sm transition-colors"
-                >
-                  Edit
-                </Link>
-              )}
+              <div className="flex items-center gap-4">
+                <ShareButton
+                  gameId={id}
+                  format={FORMAT_LABELS[game.format as MtgFormat]}
+                  turns={game.totalTurns}
+                  playedAt={game.playedAt}
+                  winner={winner ? {
+                    name: getPlayerName(winner),
+                    commander: winner.commanderUsed1,
+                    placement: winner.placement,
+                    isWinner: true,
+                  } : undefined}
+                  players={game.players.map(p => ({
+                    name: getPlayerName(p),
+                    commander: p.commanderUsed1,
+                    placement: p.placement,
+                    isWinner: p.isWinner,
+                  }))}
+                  playgroupName={game.playgroup?.name}
+                />
+                {isCreator && (
+                  <Link
+                    href={`/games/${id}/edit`}
+                    className="text-zinc-400 hover:text-zinc-200 text-sm transition-colors"
+                  >
+                    Edit
+                  </Link>
+                )}
+              </div>
             </div>
 
             {/* Winner/Draw Display */}

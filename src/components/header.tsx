@@ -2,7 +2,7 @@ import Link from "next/link";
 
 type Props = {
   username?: string;
-  activeTab?: "playgroups" | "games" | "decks" | "stats";
+  activeTab?: "playgroups" | "games" | "decks" | "stats" | "friends";
 };
 
 export function Header({ username, activeTab }: Props) {
@@ -31,6 +31,9 @@ export function Header({ username, activeTab }: Props) {
               </Link>
               <Link href="/stats" className={linkClass("stats")}>
                 Stats
+              </Link>
+              <Link href="/friends" className={linkClass("friends")}>
+                Friends
               </Link>
               <span className="text-zinc-500">|</span>
               <span className="text-zinc-300">{username}</span>

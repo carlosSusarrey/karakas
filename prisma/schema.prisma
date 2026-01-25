@@ -39,6 +39,10 @@ model User {
 
   // Games created by this user
   gamesCreated Game[] @relation("GameCreator")
+
+  // Friend relations
+  friendRequestsSent     Friendship[] @relation("FriendRequester")
+  friendRequestsReceived Friendship[] @relation("FriendAddressee")
 }
 
 model OAuthAccount {
@@ -285,4 +289,23 @@ model PowerPlay {
   game       Game       @relation(fields: [gameId], references: [id], onDelete: Cascade)
   gamePlayer GamePlayer @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
   user       User?      @relation(fields: [userId], references: [id])
+}
+
+// ============================================
+// FRIENDSHIPS
+// ============================================
+
+model Friendship {
+  id          String   @id @default(cuid())
+  requesterId String   // User who sent the request
+  addresseeId String   // User who received the request
+  status      String   @default("pending") // "pending", "accepted", "declined"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  requester User @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
 }

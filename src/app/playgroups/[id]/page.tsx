@@ -71,6 +71,84 @@ export default async function PlaygroupDashboardPage({
   const isOwner = playgroup.ownerId === user.id;
   const isAdmin = membership.role === "admin" || isOwner;
 
+  // Get all games for leaderboard calculations
+  const allGames = await db.game.findMany({
+    where: { playgroupId: id },
+    include: {
+      players: {
+        include: {
+          user: { select: { id: true, username: true } },
+          playgroupPlayer: { select: { id: true, name: true, linkedUserId: true } },
+        },
+      },
+    },
+  });
+
+  // Calculate leaderboard stats
+  const playerStats: Record<string, {
+    name: string;
+    type: "member" | "player";
+    games: number;
+    wins: number;
+    firstOuts: number;
+  }> = {};
+
+  for (const game of allGames) {
+    // Only count completed games (has a winner)
+    if (!game.players.some(p => p.isWinner)) continue;
+
+    for (const gamePlayer of game.players) {
+      let playerId: string;
+      let playerName: string;
+      let playerType: "member" | "player";
+
+      if (gamePlayer.user) {
+        playerId = `user-${gamePlayer.user.id}`;
+        playerName = gamePlayer.user.username;
+        playerType = "member";
+      } else if (gamePlayer.playgroupPlayer) {
+        playerId = `player-${gamePlayer.playgroupPlayer.id}`;
+        playerName = gamePlayer.playgroupPlayer.name;
+        playerType = "player";
+      } else {
+        continue;
+      }
+
+      if (!playerStats[playerId]) {
+        playerStats[playerId] = {
+          name: playerName,
+          type: playerType,
+          games: 0,
+          wins: 0,
+          firstOuts: 0,
+        };
+      }
+
+      playerStats[playerId].games++;
+      if (gamePlayer.isWinner) {
+        playerStats[playerId].wins++;
+      }
+      if (gamePlayer.isFirstOut) {
+        playerStats[playerId].firstOuts++;
+      }
+    }
+  }
+
+  // Create leaderboard sorted by wins, then win rate
+  const leaderboard = Object.entries(playerStats)
+    .map(([id, stats]) => ({
+      id,
+      ...stats,
+      winRate: stats.games > 0 ? Math.round((stats.wins / stats.games) * 100) : 0,
+    }))
+    .filter(p => p.games >= 1) // Only show players with at least 1 game
+    .sort((a, b) => {
+      // Sort by wins first, then by win rate
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return b.winRate - a.winRate;
+    })
+    .slice(0, 10);
+
   // Type for games with included relations
   type GameWithPlayers = typeof playgroup.games[number];
   type GamePlayerWithRelations = GameWithPlayers["players"][number];
@@ -119,6 +197,18 @@ export default async function PlaygroupDashboardPage({
               className="text-zinc-400 hover:text-zinc-100 transition-colors"
             >
               Decks
+            </Link>
+            <Link
+              href="/stats"
+              className="text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              Stats
+            </Link>
+            <Link
+              href="/friends"
+              className="text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              Friends
             </Link>
             <span className="text-zinc-500">|</span>
             <span className="text-zinc-300">{user.username}</span>
@@ -303,6 +393,57 @@ export default async function PlaygroupDashboardPage({
               </div>
             </div>
           </div>
+
+          {/* Leaderboard */}
+          {leaderboard.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-xl font-semibold mb-4">Leaderboard</h2>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-zinc-800">
+                      <th className="text-left text-zinc-400 text-sm font-medium px-4 py-3 w-12">#</th>
+                      <th className="text-left text-zinc-400 text-sm font-medium px-4 py-3">Player</th>
+                      <th className="text-center text-zinc-400 text-sm font-medium px-4 py-3">Games</th>
+                      <th className="text-center text-zinc-400 text-sm font-medium px-4 py-3">Wins</th>
+                      <th className="text-center text-zinc-400 text-sm font-medium px-4 py-3">Win Rate</th>
+                      <th className="text-center text-zinc-400 text-sm font-medium px-4 py-3">First Outs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaderboard.map((player, index) => (
+                      <tr
+                        key={player.id}
+                        className={`border-b border-zinc-800/50 ${index === 0 ? "bg-amber-900/10" : ""}`}
+                      >
+                        <td className="px-4 py-3">
+                          <span className={`font-bold ${index === 0 ? "text-amber-500" : index === 1 ? "text-zinc-300" : index === 2 ? "text-amber-700" : "text-zinc-500"}`}>
+                            {index + 1}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={index === 0 ? "font-semibold text-amber-500" : ""}>
+                              {player.name}
+                            </span>
+                            {player.type === "player" && (
+                              <span className="text-xs bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded">
+                                Guest
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center text-zinc-400">{player.games}</td>
+                        <td className="px-4 py-3 text-center font-medium text-green-500">{player.wins}</td>
+                        <td className="px-4 py-3 text-center text-amber-500">{player.winRate}%</td>
+                        <td className="px-4 py-3 text-center text-red-400">{player.firstOuts}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Recent Games */}
           <div className="mt-8">
