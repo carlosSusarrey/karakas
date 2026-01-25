@@ -27,6 +27,12 @@ export default async function PlaygroupDashboardPage({
         orderBy: { joinedAt: "asc" },
       },
       players: {
+        include: {
+          decks: {
+            where: { isActive: true },
+            orderBy: { updatedAt: "desc" },
+          },
+        },
         orderBy: { name: "asc" },
       },
       games: {
@@ -43,6 +49,9 @@ export default async function PlaygroupDashboardPage({
       },
       decks: {
         where: { isActive: true },
+        include: {
+          user: { select: { id: true, username: true } },
+        },
         orderBy: { updatedAt: "desc" },
         take: 6,
       },
@@ -287,7 +296,7 @@ export default async function PlaygroupDashboardPage({
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-amber-500">
-                    {playgroup.decks.length > 6 ? "6+" : playgroup.decks.length}
+                    {playgroup.decks.length + playgroup.players.reduce((sum, p) => sum + p.decks.length, 0)}
                   </div>
                   <div className="text-zinc-500 text-sm">Decks</div>
                 </div>
@@ -362,43 +371,113 @@ export default async function PlaygroupDashboardPage({
             )}
           </div>
 
-          {/* Recent Decks */}
+          {/* All Decks - Member and Player Decks */}
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Decks</h2>
-              <Link
-                href={`/decks?playgroup=${id}`}
-                className="text-amber-500 hover:text-amber-400 text-sm"
-              >
-                View all
-              </Link>
             </div>
-            {playgroup.decks.length === 0 ? (
-              <p className="text-zinc-500">
-                No decks in this playgroup yet.
-              </p>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {playgroup.decks.map((deck) => (
-                  <Link
-                    key={deck.id}
-                    href={`/decks/${deck.id}`}
-                    className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors"
-                  >
-                    <h3 className="font-medium text-zinc-100">{deck.name}</h3>
-                    {deck.commander1 && (
-                      <p className="text-zinc-400 text-sm mt-1">
-                        {deck.commander1}
-                        {deck.commander2 && ` + ${deck.commander2}`}
-                      </p>
-                    )}
-                    <p className="text-zinc-500 text-xs mt-1">
-                      {FORMAT_LABELS[deck.format as MtgFormat]}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            )}
+            {(() => {
+              // Collect all player decks
+              const playerDecks = playgroup.players.flatMap((player) =>
+                player.decks.map((deck) => ({
+                  ...deck,
+                  playerName: player.name,
+                  playerId: player.id,
+                  type: "player" as const,
+                }))
+              );
+
+              // Convert member decks to unified format
+              const memberDecks = playgroup.decks.map((deck) => ({
+                ...deck,
+                ownerName: deck.user.username,
+                type: "member" as const,
+              }));
+
+              const totalDecks = memberDecks.length + playerDecks.length;
+
+              if (totalDecks === 0) {
+                return (
+                  <p className="text-zinc-500">
+                    No decks in this playgroup yet.
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-6">
+                  {/* Member Decks */}
+                  {memberDecks.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-zinc-400 mb-3">
+                        Member Decks ({memberDecks.length})
+                      </h3>
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {memberDecks.map((deck) => (
+                          <Link
+                            key={deck.id}
+                            href={`/decks/${deck.id}`}
+                            className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors"
+                          >
+                            <div className="flex items-start justify-between">
+                              <h4 className="font-medium text-zinc-100">{deck.name}</h4>
+                              <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">
+                                {deck.ownerName}
+                              </span>
+                            </div>
+                            {deck.commander1 && (
+                              <p className="text-zinc-400 text-sm mt-1">
+                                {deck.commander1}
+                                {deck.commander2 && ` + ${deck.commander2}`}
+                              </p>
+                            )}
+                            <p className="text-zinc-500 text-xs mt-1">
+                              {FORMAT_LABELS[deck.format as MtgFormat]}
+                              {deck.bracket && ` · Bracket ${deck.bracket}`}
+                            </p>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Player Decks */}
+                  {playerDecks.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-zinc-400 mb-3">
+                        Player Decks ({playerDecks.length})
+                      </h3>
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {playerDecks.map((deck) => (
+                          <Link
+                            key={deck.id}
+                            href={`/playgroups/${id}/players/${deck.playerId}/decks`}
+                            className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors"
+                          >
+                            <div className="flex items-start justify-between">
+                              <h4 className="font-medium text-zinc-100">{deck.name}</h4>
+                              <span className="text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">
+                                {deck.playerName}
+                              </span>
+                            </div>
+                            {deck.commander1 && (
+                              <p className="text-zinc-400 text-sm mt-1">
+                                {deck.commander1}
+                                {deck.commander2 && ` + ${deck.commander2}`}
+                              </p>
+                            )}
+                            <p className="text-zinc-500 text-xs mt-1">
+                              {FORMAT_LABELS[deck.format as MtgFormat]}
+                              {deck.bracket && ` · Bracket ${deck.bracket}`}
+                            </p>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </main>

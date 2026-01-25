@@ -73,7 +73,8 @@ export async function createPlaygroupPlayerDeck(
 
     revalidatePath(`/playgroups/${player.playgroupId}/players/${playerId}/decks`);
     return { success: true, deckId: deck.id };
-  } catch {
+  } catch (error) {
+    console.error("Failed to create playgroup player deck:", error);
     return { error: "Failed to create deck. Please try again." };
   }
 }
