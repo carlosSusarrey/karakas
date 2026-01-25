@@ -16,6 +16,7 @@ export interface ScryfallCard {
   };
   card_faces?: Array<{
     name: string;
+    oracle_text?: string;
     image_uris?: {
       small: string;
       normal: string;
@@ -24,6 +25,7 @@ export interface ScryfallCard {
   }>;
   mana_cost?: string;
   type_line: string;
+  oracle_text?: string;
   legalities: Record<string, string>;
 }
 
@@ -137,9 +139,13 @@ export function canBeCommander(card: ScryfallCard): boolean {
   if (typeLine.includes("legendary") && typeLine.includes("creature")) {
     return true;
   }
-  // Planeswalkers that can be commanders (have explicit text, but we check type)
-  // Some planeswalkers say "can be your commander" in oracle text
-  if (typeLine.includes("legendary") && typeLine.includes("planeswalker")) {
+  // Any card with "can be your commander" in oracle text (planeswalkers, backgrounds, etc.)
+  const oracleText = (
+    card.oracle_text ||
+    card.card_faces?.[0]?.oracle_text ||
+    ""
+  ).toLowerCase();
+  if (oracleText.includes("can be your commander")) {
     return true;
   }
   return false;
