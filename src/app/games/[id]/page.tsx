@@ -72,6 +72,7 @@ export default async function GameDetailPage({
 
   const winner = game.players.find((p) => p.isWinner);
   const isDraw = !winner && game.players.every((p) => p.placement === 1);
+  const isCreator = game.createdById === user.id;
 
   type GamePlayerWithDeck = (typeof game.players)[0];
   type PowerPlayWithPlayer = (typeof game.powerPlays)[0];
@@ -173,6 +174,14 @@ export default async function GameDetailPage({
                 </div>
                 <div className="text-zinc-400 text-sm">{formatDate(game.playedAt)}</div>
               </div>
+              {isCreator && (
+                <Link
+                  href={`/games/${id}/edit`}
+                  className="text-zinc-400 hover:text-zinc-200 text-sm transition-colors"
+                >
+                  Edit
+                </Link>
+              )}
             </div>
 
             {/* Winner/Draw Display */}

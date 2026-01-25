@@ -117,10 +117,11 @@ model PlaygroupPlayer {
   createdAt    DateTime @default(now())
 
   // Relations
-  playgroup   Playgroup              @relation(fields: [playgroupId], references: [id], onDelete: Cascade)
-  linkedUser  User?                  @relation("LinkedUser", fields: [linkedUserId], references: [id])
+  playgroup   Playgroup                    @relation(fields: [playgroupId], references: [id], onDelete: Cascade)
+  linkedUser  User?                        @relation("LinkedUser", fields: [linkedUserId], references: [id])
   gamePlayers GamePlayer[]
-  decks       PlaygroupPlayerDeck[]  // Decks associated with this player
+  decks       PlaygroupPlayerDeck[]        // Decks associated with this player
+  claimTokens PlaygroupPlayerClaimToken[]  // Tokens for claiming this player
 }
 
 model PlaygroupPlayerDeck {
@@ -161,6 +162,21 @@ model PlaygroupInvitation {
   createdAt   DateTime @default(now())
 
   @@unique([playgroupId, email])
+}
+
+model PlaygroupPlayerClaimToken {
+  id                  String   @id @default(cuid())
+  playgroupPlayerId   String
+  email               String
+  token               String   @unique
+  invitedById         String
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+
+  // Relations
+  playgroupPlayer PlaygroupPlayer @relation(fields: [playgroupPlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([playgroupPlayerId, email])
 }
 
 // ============================================

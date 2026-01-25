@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updatePlaygroupPlayer, deletePlaygroupPlayer } from "./actions";
+import { updatePlaygroupPlayer, deletePlaygroupPlayer, sendClaimInvitation } from "./actions";
 
 type Player = {
   id: string;
@@ -15,15 +15,18 @@ type Props = {
   player: Player;
   canDelete: boolean;
   canEdit: boolean;
+  canInvite?: boolean;
 };
 
-export function PlayerActions({ player, canDelete, canEdit }: Props) {
+export function PlayerActions({ player, canDelete, canEdit, canInvite = false }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [mode, setMode] = useState<"view" | "edit" | "delete" | "invite">("view");
   const [name, setName] = useState(player.name);
   const [email, setEmail] = useState(player.email || "");
+  const [inviteEmail, setInviteEmail] = useState(player.email || "");
 
   async function handleUpdate() {
     setError(null);
@@ -127,6 +130,69 @@ export function PlayerActions({ player, canDelete, canEdit }: Props) {
     );
   }
 
+  if (mode === "invite") {
+    async function handleSendInvite() {
+      if (!inviteEmail.trim()) {
+        setError("Email is required");
+        return;
+      }
+      setError(null);
+      setSuccessMessage(null);
+      startTransition(async () => {
+        const result = await sendClaimInvitation(player.id, inviteEmail.trim());
+
+        if ("error" in result && result.error) {
+          setError(result.error);
+        } else if ("success" in result && result.claimUrl) {
+          setSuccessMessage(`Claim link: ${result.claimUrl}`);
+          setTimeout(() => {
+            setMode("view");
+            setSuccessMessage(null);
+            router.refresh();
+          }, 5000);
+        }
+      });
+    }
+
+    return (
+      <div className="flex flex-col gap-2">
+        {error && (
+          <span className="text-red-400 text-xs">{error}</span>
+        )}
+        {successMessage && (
+          <span className="text-green-400 text-xs break-all">{successMessage}</span>
+        )}
+        {!successMessage && (
+          <div className="flex items-center gap-2">
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="Email address"
+              className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-100 w-44 focus:outline-none focus:border-amber-500"
+            />
+            <button
+              onClick={handleSendInvite}
+              disabled={isPending}
+              className="text-amber-400 hover:text-amber-300 text-xs font-medium disabled:opacity-50"
+            >
+              {isPending ? "..." : "Send"}
+            </button>
+            <button
+              onClick={() => {
+                setMode("view");
+                setError(null);
+              }}
+              className="text-zinc-400 hover:text-zinc-300 text-xs"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // View mode - show buttons if user is not linked
   if (player.linkedUserId) {
     return null; // Can't edit linked players
@@ -134,6 +200,14 @@ export function PlayerActions({ player, canDelete, canEdit }: Props) {
 
   return (
     <div className="flex items-center gap-2">
+      {canInvite && (
+        <button
+          onClick={() => setMode("invite")}
+          className="text-green-400 hover:text-green-300 text-xs"
+        >
+          Send Invite
+        </button>
+      )}
       {canEdit && (
         <button
           onClick={() => setMode("edit")}

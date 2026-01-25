@@ -55,8 +55,8 @@ Playgroups are the central organizing concept. All games, decks, and players bel
     - Create decks for playgroup players (non-registered)
     - Decks can be selected when logging games
     - [ ] When a player is claimed, their decks can be linked to the user's deck collection
-  - [ ] When a user signs up, they can claim/link a placeholder player
-  - [ ] Linking merges all game history to the user account
+  - [x] When a user signs up, they can claim/link a placeholder player
+  - [x] Linking merges all game history to the user account
 - [x] List user's playgroups
 - [x] Playgroup dashboard showing recent games and members
 
@@ -111,8 +111,8 @@ The core feature - logging MTG games within a playgroup.
   - First eliminated player
   - Elimination order/placement
   - Turn eliminated (optional)
-- [ ] Edit existing games
-- [ ] Delete games
+- [x] Edit existing games
+- [x] Delete games
 - [x] Game detail view
 - [x] Game list with playgroup filtering
 - [x] Live game tracking (turn counter, eliminations)
@@ -151,32 +151,32 @@ Track notable plays that happen during games.
 
 ### 6. Statistics Dashboard
 
-**Status:** 🔲 Not started
+**Status:** ✅ Phase 1 complete
 
 Aggregate statistics from logged games.
 
 **Requirements:**
-- [ ] Personal stats:
+- [x] Personal stats:
   - Total games played
   - Win rate (overall and by format)
   - Most played deck
   - Most played commander
   - Average game length (turns)
   - First elimination rate
-- [ ] Deck stats:
+- [x] Deck stats:
   - Win rate per deck
   - Games played per deck
   - Average placement
-- [ ] Commander stats:
+- [x] Commander stats:
   - Win rate per commander
   - Most common opponents
 - [ ] Power play stats:
   - Most common power play types
   - Power plays per game average
-- [ ] Playgroup stats:
+- [x] Playgroup stats:
   - Head-to-head records
   - Most frequent opponents
-- [ ] Filters:
+- [x] Filters:
   - Date range
   - Format
   - Specific deck
@@ -342,23 +342,24 @@ src/
 - Live game tracking with turn counter and eliminations
 - Power play tracking during games
 
-### Phase 4: Player Claiming ⬅️ Next
+### Phase 4: Player Claiming ✅ Complete
 - Allow new users to claim existing playgroup players
 - Merge game history when claiming
-- Email-based claim invitations
+- Token-based claim invitations (admins can generate claim links)
 
-### Phase 5: Statistics
+### Phase 5: Statistics ✅ Complete
 - Personal stats dashboard
 - Deck performance stats
 - Win rate calculations
 - Playgroup-level statistics
+- Format and playgroup filters
 
-### Phase 7: Social Features
+### Phase 6: Social Features ⬅️ Next
 - Friend system
 - Cross-playgroup stats
 - Leaderboards
 
-### Phase 8: Polish
+### Phase 7: Polish
 - Email verification
 - Mobile responsiveness improvements
 - Performance optimization

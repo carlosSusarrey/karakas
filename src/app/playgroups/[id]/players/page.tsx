@@ -171,6 +171,7 @@ export default async function PlaygroupPlayersPage({
                       player={player}
                       canDelete={isAdmin && player._count.gamePlayers === 0}
                       canEdit={true}
+                      canInvite={isAdmin && !player.linkedUserId}
                     />
                   </div>
                 ))}

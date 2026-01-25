@@ -78,7 +78,8 @@ function LoginForm() {
       setError(result.error);
       setLoading(false);
     } else {
-      router.push("/");
+      const redirect = searchParams.get("redirect");
+      router.push(redirect || "/");
       router.refresh();
     }
   }
