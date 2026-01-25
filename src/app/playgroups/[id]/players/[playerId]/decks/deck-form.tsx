@@ -13,6 +13,7 @@ import {
   type EdhBracket,
 } from "@/types/mtg";
 import { createPlaygroupPlayerDeck } from "./actions";
+import { CardAutocomplete } from "@/components/card-autocomplete";
 
 type Props = {
   playerId: string;
@@ -24,6 +25,8 @@ export function DeckForm({ playerId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [format, setFormat] = useState<MtgFormat>("commander");
+  const [commander1, setCommander1] = useState("");
+  const [commander2, setCommander2] = useState("");
 
   const showCommanderFields = COMMANDER_FORMATS.includes(format);
   const showBracketField = BRACKET_FORMATS.includes(format);
@@ -41,6 +44,8 @@ export function DeckForm({ playerId }: Props) {
         setError(result.error);
       } else {
         setShowForm(false);
+        setCommander1("");
+        setCommander2("");
         router.refresh();
       }
     });
@@ -117,12 +122,15 @@ export function DeckForm({ playerId }: Props) {
               >
                 Commander
               </label>
-              <input
-                type="text"
+              <CardAutocomplete
                 id="commander1"
                 name="commander1"
+                value={commander1}
+                onChange={setCommander1}
                 placeholder="e.g., Krenko, Mob Boss"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition-colors"
+                commanderOnly={true}
+                showPreview={true}
+                className="bg-zinc-800"
               />
             </div>
 
@@ -133,12 +141,15 @@ export function DeckForm({ playerId }: Props) {
               >
                 Partner Commander
               </label>
-              <input
-                type="text"
+              <CardAutocomplete
                 id="commander2"
                 name="commander2"
+                value={commander2}
+                onChange={setCommander2}
                 placeholder="If using partners"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500 transition-colors"
+                commanderOnly={true}
+                showPreview={true}
+                className="bg-zinc-800"
               />
             </div>
           </div>

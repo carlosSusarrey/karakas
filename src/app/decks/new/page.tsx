@@ -15,12 +15,15 @@ import {
   type EdhBracket,
 } from "@/types/mtg";
 import { Header } from "@/components/header";
+import { CardAutocomplete } from "@/components/card-autocomplete";
 
 export default function NewDeckPage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [format, setFormat] = useState<MtgFormat>("commander");
+  const [commander1, setCommander1] = useState("");
+  const [commander2, setCommander2] = useState("");
 
   const showCommander = isCommanderFormat(format);
   const showBracket = hasBrackets(format);
@@ -113,12 +116,14 @@ export default function NewDeckPage() {
                   >
                     Commander
                   </label>
-                  <input
-                    type="text"
+                  <CardAutocomplete
                     id="commander1"
                     name="commander1"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 text-zinc-100 focus:outline-none focus:border-amber-500 transition-colors"
+                    value={commander1}
+                    onChange={setCommander1}
                     placeholder="e.g., Urza, Lord High Artificer"
+                    commanderOnly={true}
+                    showPreview={true}
                   />
                 </div>
 
@@ -129,12 +134,14 @@ export default function NewDeckPage() {
                   >
                     Partner Commander (optional)
                   </label>
-                  <input
-                    type="text"
+                  <CardAutocomplete
                     id="commander2"
                     name="commander2"
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 text-zinc-100 focus:outline-none focus:border-amber-500 transition-colors"
+                    value={commander2}
+                    onChange={setCommander2}
                     placeholder="e.g., Thrasios, Triton Hero"
+                    commanderOnly={true}
+                    showPreview={true}
                   />
                 </div>
               </>

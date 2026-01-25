@@ -15,6 +15,7 @@ import {
   type EdhBracket,
 } from "@/types/mtg";
 import { Header } from "@/components/header";
+import { CardAutocomplete } from "@/components/card-autocomplete";
 
 interface DeckData {
   id: string;
@@ -36,6 +37,8 @@ export default function EditDeckPage() {
   const [loading, setLoading] = useState(true);
   const [deck, setDeck] = useState<DeckData | null>(null);
   const [format, setFormat] = useState<MtgFormat>("commander");
+  const [commander1, setCommander1] = useState("");
+  const [commander2, setCommander2] = useState("");
 
   useEffect(() => {
     async function loadDeck() {
@@ -48,6 +51,8 @@ export default function EditDeckPage() {
         const data = await res.json();
         setDeck(data);
         setFormat(data.format as MtgFormat);
+        setCommander1(data.commander1 || "");
+        setCommander2(data.commander2 || "");
       } catch {
         router.push("/decks");
       } finally {
@@ -161,13 +166,14 @@ export default function EditDeckPage() {
                   >
                     Commander
                   </label>
-                  <input
-                    type="text"
+                  <CardAutocomplete
                     id="commander1"
                     name="commander1"
-                    defaultValue={deck.commander1 || ""}
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 text-zinc-100 focus:outline-none focus:border-amber-500 transition-colors"
+                    value={commander1}
+                    onChange={setCommander1}
                     placeholder="e.g., Urza, Lord High Artificer"
+                    commanderOnly={true}
+                    showPreview={true}
                   />
                 </div>
 
@@ -178,13 +184,14 @@ export default function EditDeckPage() {
                   >
                     Partner Commander (optional)
                   </label>
-                  <input
-                    type="text"
+                  <CardAutocomplete
                     id="commander2"
                     name="commander2"
-                    defaultValue={deck.commander2 || ""}
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 text-zinc-100 focus:outline-none focus:border-amber-500 transition-colors"
+                    value={commander2}
+                    onChange={setCommander2}
                     placeholder="e.g., Thrasios, Triton Hero"
+                    commanderOnly={true}
+                    showPreview={true}
                   />
                 </div>
               </>

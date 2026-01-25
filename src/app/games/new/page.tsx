@@ -26,6 +26,7 @@ import {
 } from "@/types/mtg";
 import type { Deck } from "@/generated/prisma/client";
 import { Header } from "@/components/header";
+import { CardAutocomplete } from "@/components/card-autocomplete";
 
 type PlayerInput = {
   id: string;
@@ -453,32 +454,36 @@ function NewGameForm() {
                             <label className="block text-sm text-zinc-400 mb-1">
                               Commander
                             </label>
-                            <input
-                              type="text"
+                            <CardAutocomplete
+                              id={`commander1-${player.id}`}
+                              name={`commander1-${player.id}`}
                               value={player.commanderUsed1}
-                              onChange={(e) =>
+                              onChange={(value) =>
                                 updatePlayer(player.id, {
-                                  commanderUsed1: e.target.value,
+                                  commanderUsed1: value,
                                 })
                               }
                               placeholder="Commander name"
-                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500 transition-colors"
+                              commanderOnly={true}
+                              showPreview={true}
                             />
                           </div>
                           <div>
                             <label className="block text-sm text-zinc-400 mb-1">
                               Partner (optional)
                             </label>
-                            <input
-                              type="text"
+                            <CardAutocomplete
+                              id={`commander2-${player.id}`}
+                              name={`commander2-${player.id}`}
                               value={player.commanderUsed2}
-                              onChange={(e) =>
+                              onChange={(value) =>
                                 updatePlayer(player.id, {
-                                  commanderUsed2: e.target.value,
+                                  commanderUsed2: value,
                                 })
                               }
                               placeholder="Partner commander"
-                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500 transition-colors"
+                              commanderOnly={true}
+                              showPreview={true}
                             />
                           </div>
                         </div>

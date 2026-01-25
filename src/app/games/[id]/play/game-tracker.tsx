@@ -20,6 +20,7 @@ import {
   endGame,
 } from "./actions";
 import { Header } from "@/components/header";
+import { CardAutocomplete } from "@/components/card-autocomplete";
 
 type PlayerUser = { id: string; username: string } | null;
 type PlayerPlaygroupPlayer = { id: string; name: string } | null;
@@ -396,17 +397,20 @@ export function GameTracker({ game }: { game: GameWithRelations }) {
                 <label className="block text-sm text-zinc-400 mb-1">
                   Card Name (optional)
                 </label>
-                <input
-                  type="text"
+                <CardAutocomplete
+                  id="powerplay-card"
+                  name="powerplay-card"
                   value={powerPlayForm.cardName}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setPowerPlayForm({
                       ...powerPlayForm,
-                      cardName: e.target.value,
+                      cardName: value,
                     })
                   }
                   placeholder="Primary card involved"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
+                  commanderOnly={false}
+                  showPreview={true}
+                  className="bg-zinc-800"
                 />
               </div>
             </div>
