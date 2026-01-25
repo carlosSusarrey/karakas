@@ -62,6 +62,12 @@ export default async function GamesPage() {
           </Link>
           <div className="flex items-center gap-4">
             <Link
+              href="/playgroups"
+              className="text-zinc-400 hover:text-zinc-100 transition-colors"
+            >
+              Playgroups
+            </Link>
+            <Link
               href="/games"
               className="text-zinc-100 font-medium"
             >

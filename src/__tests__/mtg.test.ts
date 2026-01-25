@@ -9,22 +9,23 @@ import {
 describe('MTG Types', () => {
   describe('MTG_FORMATS', () => {
     it('contains all standard formats', () => {
-      expect(MTG_FORMATS).toContain('Standard')
-      expect(MTG_FORMATS).toContain('Modern')
-      expect(MTG_FORMATS).toContain('Legacy')
-      expect(MTG_FORMATS).toContain('Vintage')
-      expect(MTG_FORMATS).toContain('Pioneer')
-      expect(MTG_FORMATS).toContain('Pauper')
+      expect(MTG_FORMATS).toContain('standard')
+      expect(MTG_FORMATS).toContain('modern')
+      expect(MTG_FORMATS).toContain('legacy')
+      expect(MTG_FORMATS).toContain('vintage')
+      expect(MTG_FORMATS).toContain('pioneer')
+      expect(MTG_FORMATS).toContain('pauper')
     })
 
     it('contains commander formats', () => {
-      expect(MTG_FORMATS).toContain('Commander')
-      expect(MTG_FORMATS).toContain('Duel Commander')
+      expect(MTG_FORMATS).toContain('commander')
+      expect(MTG_FORMATS).toContain('oathbreaker')
+      expect(MTG_FORMATS).toContain('brawl')
     })
 
     it('contains limited formats', () => {
-      expect(MTG_FORMATS).toContain('Draft')
-      expect(MTG_FORMATS).toContain('Sealed')
+      expect(MTG_FORMATS).toContain('draft')
+      expect(MTG_FORMATS).toContain('sealed')
     })
   })
 
@@ -36,13 +37,15 @@ describe('MTG Types', () => {
     })
 
     it('contains only commander-related formats', () => {
-      expect(COMMANDER_FORMATS).toContain('Commander')
+      expect(COMMANDER_FORMATS).toContain('commander')
+      expect(COMMANDER_FORMATS).toContain('oathbreaker')
+      expect(COMMANDER_FORMATS).toContain('brawl')
     })
 
     it('does not contain non-commander formats', () => {
-      expect(COMMANDER_FORMATS).not.toContain('Standard')
-      expect(COMMANDER_FORMATS).not.toContain('Modern')
-      expect(COMMANDER_FORMATS).not.toContain('Draft')
+      expect(COMMANDER_FORMATS).not.toContain('standard')
+      expect(COMMANDER_FORMATS).not.toContain('modern')
+      expect(COMMANDER_FORMATS).not.toContain('draft')
     })
   })
 
@@ -58,22 +61,22 @@ describe('MTG Types', () => {
 
   describe('POWER_PLAY_TYPES', () => {
     it('contains core power play types', () => {
-      expect(POWER_PLAY_TYPES).toContain('Combo')
-      expect(POWER_PLAY_TYPES).toContain('Board Wipe')
-      expect(POWER_PLAY_TYPES).toContain('Theft')
-      expect(POWER_PLAY_TYPES).toContain('Win Condition')
-      expect(POWER_PLAY_TYPES).toContain('Removal')
-      expect(POWER_PLAY_TYPES).toContain('Counterspell')
+      expect(POWER_PLAY_TYPES).toContain('combo')
+      expect(POWER_PLAY_TYPES).toContain('boardwipe')
+      expect(POWER_PLAY_TYPES).toContain('theft')
+      expect(POWER_PLAY_TYPES).toContain('wincon')
+      expect(POWER_PLAY_TYPES).toContain('removal')
+      expect(POWER_PLAY_TYPES).toContain('counter')
     })
 
     it('contains resource power play types', () => {
-      expect(POWER_PLAY_TYPES).toContain('Big Ramp')
-      expect(POWER_PLAY_TYPES).toContain('Card Draw')
-      expect(POWER_PLAY_TYPES).toContain('Tutor')
+      expect(POWER_PLAY_TYPES).toContain('ramp')
+      expect(POWER_PLAY_TYPES).toContain('draw')
+      expect(POWER_PLAY_TYPES).toContain('tutor')
     })
 
-    it('contains Other as a catch-all', () => {
-      expect(POWER_PLAY_TYPES).toContain('Other')
+    it('contains other as a catch-all', () => {
+      expect(POWER_PLAY_TYPES).toContain('other')
     })
   })
 })

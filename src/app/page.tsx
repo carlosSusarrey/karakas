@@ -16,6 +16,12 @@ export default async function HomePage() {
             {user ? (
               <>
                 <Link
+                  href="/playgroups"
+                  className="text-zinc-400 hover:text-zinc-100 transition-colors"
+                >
+                  Playgroups
+                </Link>
+                <Link
                   href="/games"
                   className="text-zinc-400 hover:text-zinc-100 transition-colors"
                 >

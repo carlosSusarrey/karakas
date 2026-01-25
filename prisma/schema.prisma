@@ -25,11 +25,17 @@ model User {
 
   // Relations
   oauthAccounts        OAuthAccount[]
-  decks                Deck[]
+  decks                Deck[]          // Decks created by this user
   gamePlayers          GamePlayer[]
   powerPlays           PowerPlay[]
   sessions             Session[]
   passwordResetTokens  PasswordResetToken[]
+
+  // Playgroup relations
+  playgroupsOwned      Playgroup[]        @relation("PlaygroupOwner")
+  playgroupMemberships PlaygroupMember[]
+  playgroupInvitesSent PlaygroupMember[]  @relation("InvitedBy")
+  linkedPlaygroupPlayer PlaygroupPlayer?  @relation("LinkedUser")
 
   // Games created by this user
   gamesCreated Game[] @relation("GameCreator")
@@ -66,12 +72,77 @@ model PasswordResetToken {
 }
 
 // ============================================
+// PLAYGROUPS
+// ============================================
+
+model Playgroup {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  defaultFormat String?  // Default MTG format for new games
+  ownerId       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  owner    User              @relation("PlaygroupOwner", fields: [ownerId], references: [id])
+  members  PlaygroupMember[]
+  players  PlaygroupPlayer[] // Non-registered players
+  decks    Deck[]
+  games    Game[]
+}
+
+model PlaygroupMember {
+  id          String   @id @default(cuid())
+  playgroupId String
+  userId      String
+  role        String   @default("member") // "owner", "admin", "member"
+  joinedAt    DateTime @default(now())
+  invitedById String?
+
+  // Relations
+  playgroup Playgroup @relation(fields: [playgroupId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@unique([playgroupId, userId])
+}
+
+model PlaygroupPlayer {
+  id           String   @id @default(cuid())
+  playgroupId  String
+  name         String
+  email        String?  // Optional, for sending claim invitations
+  linkedUserId String?  @unique // When claimed by a registered user
+  createdAt    DateTime @default(now())
+
+  // Relations
+  playgroup   Playgroup    @relation(fields: [playgroupId], references: [id], onDelete: Cascade)
+  linkedUser  User?        @relation("LinkedUser", fields: [linkedUserId], references: [id])
+  gamePlayers GamePlayer[]
+}
+
+model PlaygroupInvitation {
+  id          String   @id @default(cuid())
+  playgroupId String
+  email       String
+  token       String   @unique
+  role        String   @default("member") // Role to assign when accepted
+  invitedById String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([playgroupId, email])
+}
+
+// ============================================
 // DECKS
 // ============================================
 
 model Deck {
   id           String   @id @default(cuid())
-  userId       String
+  userId       String   // User who created the deck
+  playgroupId  String?  // Optional playgroup association
   name         String
   format       String   // "commander", "standard", "modern", "legacy", "vintage", "pioneer", "pauper", "draft", "sealed"
 
@@ -89,6 +160,7 @@ model Deck {
 
   // Relations
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playgroup   Playgroup?   @relation(fields: [playgroupId], references: [id], onDelete: SetNull)
   gamePlayers GamePlayer[]
 }
 
@@ -99,6 +171,7 @@ model Deck {
 model Game {
   id          String   @id @default(cuid())
   createdById String
+  playgroupId String?  // Optional playgroup association
   format      String   // Game format
   totalTurns  Int?     // Total turns in the game
   notes       String?  // Optional game notes
@@ -108,18 +181,20 @@ model Game {
 
   // Relations
   createdBy   User         @relation("GameCreator", fields: [createdById], references: [id])
+  playgroup   Playgroup?   @relation(fields: [playgroupId], references: [id], onDelete: SetNull)
   players     GamePlayer[]
   powerPlays  PowerPlay[]
 }
 
 model GamePlayer {
-  id        String  @id @default(cuid())
-  gameId    String
-  userId    String?  // Null if player is not a registered user (guest)
-  deckId    String?  // Null if deck not tracked
+  id                String  @id @default(cuid())
+  gameId            String
+  userId            String?  // Null if player is not a registered user
+  playgroupPlayerId String?  // For non-registered playgroup players
+  deckId            String?  // Null if deck not tracked
 
-  // Player identification for non-users
-  guestName String?  // Name for guest players
+  // Player identification for non-users (legacy/ad-hoc)
+  guestName String?  // Name for guest players without playgroup player record
 
   // Game-specific deck info (snapshot at time of game)
   commanderUsed1 String? // Commander used in this game
@@ -133,10 +208,11 @@ model GamePlayer {
   eliminatedTurn Int?    // Turn when eliminated (null if won or game ended)
 
   // Relations
-  game       Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  user       User?       @relation(fields: [userId], references: [id])
-  deck       Deck?       @relation(fields: [deckId], references: [id])
-  powerPlays PowerPlay[]
+  game            Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user            User?            @relation(fields: [userId], references: [id])
+  playgroupPlayer PlaygroupPlayer? @relation(fields: [playgroupPlayerId], references: [id])
+  deck            Deck?            @relation(fields: [deckId], references: [id])
+  powerPlays      PowerPlay[]
 
   @@unique([gameId, userId])
 }

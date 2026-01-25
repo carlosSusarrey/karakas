@@ -28,33 +28,33 @@ Karakas is a Magic: The Gathering game tracking application that allows players 
 
 ### 2. Playgroups
 
-**Status:** 🔲 Not started
+**Status:** ✅ Phase 1 complete (core functionality)
 
 Playgroups are the central organizing concept. All games, decks, and players belong to a playgroup.
 
 **Requirements:**
-- [ ] Create/edit/delete playgroups
-- [ ] Playgroup fields:
+- [x] Create/edit/delete playgroups
+- [x] Playgroup fields:
   - Name
   - Description (optional)
   - Default format (optional)
-- [ ] Membership management:
+- [x] Membership management:
   - Invite users to playgroup (by email or username)
   - Accept/decline playgroup invitations
   - Leave playgroup
   - Remove members (owner/admin only)
   - Transfer ownership
-- [ ] Playgroup roles:
+- [x] Playgroup roles:
   - Owner (creator, full control)
   - Admin (can manage members and settings)
   - Member (can log games, add decks)
-- [ ] Playgroup players (non-registered):
+- [x] Playgroup players (non-registered):
   - Create placeholder players for people without accounts
   - Placeholder players have a name and optional email
-  - When a user signs up, they can claim/link a placeholder player
-  - Linking merges all game history to the user account
-- [ ] List user's playgroups
-- [ ] Playgroup dashboard showing recent games and members
+  - [ ] When a user signs up, they can claim/link a placeholder player
+  - [ ] Linking merges all game history to the user account
+- [x] List user's playgroups
+- [x] Playgroup dashboard showing recent games and members
 
 ### 3. Deck Management
 
@@ -307,15 +307,15 @@ src/
 - Support for commander formats with bracket
 - Archive/unarchive functionality
 
-### Phase 2: Playgroups ⬅️ Next
+### Phase 2: Playgroups ✅ Complete
 - Playgroup CRUD (create, edit, delete)
 - Playgroup membership (invite, accept, leave)
 - Playgroup players (non-registered placeholders)
-- Migrate existing decks to require playgroup association
 - Playgroup dashboard with member list
+- Settings page with delete functionality
 
-### Phase 3: Playgroup-Based Game Logging
-- Create game logging form within playgroup context
+### Phase 3: Playgroup-Based Game Logging ⬅️ Next
+- Update game logging to work within playgroup context
 - Select players from playgroup members + playgroup players
 - Select decks from any deck in the playgroup
 - Add players and results
