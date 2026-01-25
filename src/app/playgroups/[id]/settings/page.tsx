@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, useEffect } from "react";
 import { MTG_FORMATS, FORMAT_LABELS, type MtgFormat } from "@/types/mtg";
+import { Header } from "@/components/header";
 
 type Playgroup = {
   id: string;
@@ -102,34 +103,7 @@ export default function PlaygroupSettingsPage({
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4">
-        <nav className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-amber-500">
-            Karakas
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/playgroups"
-              className="text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Playgroups
-            </Link>
-            <Link
-              href="/games"
-              className="text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Games
-            </Link>
-            <Link
-              href="/decks"
-              className="text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Decks
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <Header activeTab="playgroups" />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-8">

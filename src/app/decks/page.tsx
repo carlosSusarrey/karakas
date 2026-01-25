@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FORMAT_LABELS, BRACKET_DESCRIPTIONS, type MtgFormat, type EdhBracket } from "@/types/mtg";
+import { Header } from "@/components/header";
 
 export default async function DecksPage({
   searchParams,
@@ -57,54 +58,7 @@ export default async function DecksPage({
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4">
-        <nav className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-amber-500">
-            Karakas
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/playgroups"
-              className="text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Playgroups
-            </Link>
-            <Link
-              href="/games"
-              className="text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Games
-            </Link>
-            <Link
-              href="/decks"
-              className="text-zinc-100 font-medium"
-            >
-              Decks
-            </Link>
-            <Link
-              href="/stats"
-              className="text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Stats
-            </Link>
-            <Link
-              href="/friends"
-              className="text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Friends
-            </Link>
-            <span className="text-zinc-500">|</span>
-            <span className="text-zinc-300">{user.username}</span>
-            <Link
-              href="/logout"
-              className="text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              Log out
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <Header username={user.username} activeTab="decks" />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-8">

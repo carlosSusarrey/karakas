@@ -19,6 +19,7 @@ import {
   removePowerPlay,
   endGame,
 } from "./actions";
+import { Header } from "@/components/header";
 
 type PlayerUser = { id: string; username: string } | null;
 type PlayerPlaygroupPlayer = { id: string; name: string } | null;
@@ -133,19 +134,7 @@ export function GameTracker({ game }: { game: GameWithRelations }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950">
-      {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4">
-        <nav className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-amber-500">
-            Karakas
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-zinc-400">
-              {FORMAT_LABELS[game.format as MtgFormat]}
-            </span>
-          </div>
-        </nav>
-      </header>
+      <Header activeTab="games" />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-6">

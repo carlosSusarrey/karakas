@@ -9,6 +9,7 @@ import {
   type EdhBracket,
 } from "@/types/mtg";
 import { DeckActions } from "./deck-actions";
+import { Header } from "@/components/header";
 
 export default async function DeckDetailPage({
   params,
@@ -77,22 +78,7 @@ export default async function DeckDetailPage({
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4">
-        <nav className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold text-amber-500">
-            Karakas
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/decks"
-              className="text-zinc-100 font-medium"
-            >
-              Decks
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <Header username={user.username} activeTab="decks" />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-8">

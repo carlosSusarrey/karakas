@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useRef, useEffect } from "react";
 
 type Props = {
   username?: string;
@@ -6,10 +9,29 @@ type Props = {
 };
 
 export function Header({ username, activeTab }: Props) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const linkClass = (tab: string) =>
     activeTab === tab
       ? "text-zinc-100 font-medium"
       : "text-zinc-400 hover:text-zinc-100 transition-colors";
+
+  const dropdownLinkClass = (tab: string) =>
+    activeTab === tab
+      ? "block px-4 py-2 text-zinc-100 font-medium bg-zinc-800"
+      : "block px-4 py-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors";
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <header className="border-b border-zinc-800 px-6 py-4">
@@ -20,21 +42,66 @@ export function Header({ username, activeTab }: Props) {
         <div className="flex items-center gap-4">
           {username ? (
             <>
-              <Link href="/playgroups" className={linkClass("playgroups")}>
-                Playgroups
-              </Link>
-              <Link href="/games" className={linkClass("games")}>
-                Games
-              </Link>
-              <Link href="/decks" className={linkClass("decks")}>
-                Decks
-              </Link>
-              <Link href="/stats" className={linkClass("stats")}>
-                Stats
-              </Link>
-              <Link href="/friends" className={linkClass("friends")}>
-                Friends
-              </Link>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="flex items-center gap-2 text-zinc-400 hover:text-zinc-100 transition-colors"
+                >
+                  <span>Menu</span>
+                  <svg
+                    className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {isOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg py-1 z-50">
+                    <Link
+                      href="/playgroups"
+                      className={dropdownLinkClass("playgroups")}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Playgroups
+                    </Link>
+                    <Link
+                      href="/games"
+                      className={dropdownLinkClass("games")}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Games
+                    </Link>
+                    <Link
+                      href="/decks"
+                      className={dropdownLinkClass("decks")}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Decks
+                    </Link>
+                    <Link
+                      href="/stats"
+                      className={dropdownLinkClass("stats")}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Stats
+                    </Link>
+                    <Link
+                      href="/friends"
+                      className={dropdownLinkClass("friends")}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Friends
+                    </Link>
+                  </div>
+                )}
+              </div>
               <span className="text-zinc-500">|</span>
               <span className="text-zinc-300">{username}</span>
               <Link
