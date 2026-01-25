@@ -20,9 +20,24 @@ import {
   endGame,
 } from "./actions";
 
+type PlayerUser = { id: string; username: string } | null;
+type PlayerPlaygroupPlayer = { id: string; name: string } | null;
+
+type GamePlayerWithRelations = GamePlayer & {
+  deck: Deck | null;
+  user: PlayerUser;
+  playgroupPlayer: PlayerPlaygroupPlayer;
+};
+
+type PowerPlayGamePlayer = GamePlayer & {
+  user: { username: string } | null;
+  playgroupPlayer: { name: string } | null;
+};
+
 type GameWithRelations = Game & {
-  players: (GamePlayer & { deck: Deck | null })[];
-  powerPlays: (PowerPlay & { gamePlayer: GamePlayer })[];
+  playgroup: { id: string; name: string } | null;
+  players: GamePlayerWithRelations[];
+  powerPlays: (PowerPlay & { gamePlayer: PowerPlayGamePlayer })[];
 };
 
 export function GameTracker({ game }: { game: GameWithRelations }) {
@@ -43,7 +58,13 @@ export function GameTracker({ game }: { game: GameWithRelations }) {
     .filter((p) => p.eliminatedTurn !== null)
     .sort((a, b) => (b.eliminatedTurn || 0) - (a.eliminatedTurn || 0));
 
-  function getPlayerName(player: GamePlayer) {
+  function getPlayerName(player: GamePlayerWithRelations | PowerPlayGamePlayer) {
+    if (player.user) {
+      return player.user.username;
+    }
+    if (player.playgroupPlayer) {
+      return player.playgroupPlayer.name;
+    }
     return player.guestName || "Unknown Player";
   }
 

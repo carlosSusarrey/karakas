@@ -7,8 +7,9 @@ import type { MtgFormat } from "@/types/mtg";
 
 export type PlayerSetup = {
   id: string;
-  type: "user" | "guest";
+  type: "user" | "guest" | "playgroup_member" | "playgroup_player";
   userId?: string;
+  playgroupPlayerId?: string;
   guestName?: string;
   deckId?: string;
   commanderUsed1?: string;
@@ -18,7 +19,38 @@ export type PlayerSetup = {
 
 export type CreateGameInput = {
   format: MtgFormat;
+  playgroupId?: string;
   players: PlayerSetup[];
+};
+
+// Types for playgroup data
+export type PlaygroupMemberData = {
+  id: string;
+  username: string;
+};
+
+export type PlaygroupPlayerData = {
+  id: string;
+  name: string;
+};
+
+export type PlaygroupDeckData = {
+  id: string;
+  name: string;
+  format: string;
+  commander1: string | null;
+  commander2: string | null;
+  bracket: number | null;
+  createdBy: { username: string };
+};
+
+export type PlaygroupData = {
+  id: string;
+  name: string;
+  defaultFormat: string | null;
+  members: PlaygroupMemberData[];
+  players: PlaygroupPlayerData[];
+  decks: PlaygroupDeckData[];
 };
 
 export async function createGame(
@@ -38,10 +70,28 @@ export async function createGame(
     return { error: "At least 2 players are required" };
   }
 
+  // If playgroup is specified, verify user is a member
+  if (input.playgroupId) {
+    const membership = await db.playgroupMember.findUnique({
+      where: {
+        playgroupId_userId: {
+          playgroupId: input.playgroupId,
+          userId: user.id,
+        },
+      },
+    });
+    if (!membership) {
+      return { error: "You are not a member of this playgroup" };
+    }
+  }
+
   // Validate each player has identification
   for (const player of input.players) {
-    if (player.type === "user" && !player.userId) {
-      return { error: "Registered players must have a user ID" };
+    if (player.type === "playgroup_member" && !player.userId) {
+      return { error: "Playgroup members must have a user ID" };
+    }
+    if (player.type === "playgroup_player" && !player.playgroupPlayerId) {
+      return { error: "Playgroup players must have a player ID" };
     }
     if (player.type === "guest" && !player.guestName?.trim()) {
       return { error: "Guest players must have a name" };
@@ -53,11 +103,13 @@ export async function createGame(
     const game = await db.game.create({
       data: {
         createdById: user.id,
+        playgroupId: input.playgroupId || null,
         format: input.format,
         totalTurns: 0,
         players: {
           create: input.players.map((player) => ({
-            userId: player.type === "user" ? player.userId : null,
+            userId: player.type === "playgroup_member" ? player.userId : null,
+            playgroupPlayerId: player.type === "playgroup_player" ? player.playgroupPlayerId : null,
             guestName: player.type === "guest" ? player.guestName : null,
             deckId: player.deckId || null,
             commanderUsed1: player.commanderUsed1 || null,
@@ -91,4 +143,124 @@ export async function getUserDecks(format?: string) {
   });
 
   return decks;
+}
+
+export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupData | null> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return null;
+  }
+
+  // Verify user is a member of this playgroup
+  const membership = await db.playgroupMember.findUnique({
+    where: {
+      playgroupId_userId: {
+        playgroupId,
+        userId: user.id,
+      },
+    },
+  });
+
+  if (!membership) {
+    return null;
+  }
+
+  const playgroup = await db.playgroup.findUnique({
+    where: { id: playgroupId },
+    include: {
+      members: {
+        include: {
+          user: {
+            select: { id: true, username: true },
+          },
+        },
+        orderBy: { joinedAt: "asc" },
+      },
+      players: {
+        where: { linkedUserId: null }, // Only unlinked players
+        orderBy: { name: "asc" },
+      },
+      decks: {
+        where: { isActive: true },
+        include: {
+          user: {
+            select: { username: true },
+          },
+        },
+        orderBy: { name: "asc" },
+      },
+    },
+  });
+
+  if (!playgroup) {
+    return null;
+  }
+
+  return {
+    id: playgroup.id,
+    name: playgroup.name,
+    defaultFormat: playgroup.defaultFormat,
+    members: playgroup.members.map((m) => ({
+      id: m.user.id,
+      username: m.user.username,
+    })),
+    players: playgroup.players.map((p) => ({
+      id: p.id,
+      name: p.name,
+    })),
+    decks: playgroup.decks.map((d) => ({
+      id: d.id,
+      name: d.name,
+      format: d.format,
+      commander1: d.commander1,
+      commander2: d.commander2,
+      bracket: d.bracket,
+      createdBy: { username: d.user.username },
+    })),
+  };
+}
+
+export async function getPlaygroupDecks(playgroupId: string, format?: string): Promise<PlaygroupDeckData[]> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return [];
+  }
+
+  // Verify user is a member
+  const membership = await db.playgroupMember.findUnique({
+    where: {
+      playgroupId_userId: {
+        playgroupId,
+        userId: user.id,
+      },
+    },
+  });
+
+  if (!membership) {
+    return [];
+  }
+
+  const decks = await db.deck.findMany({
+    where: {
+      playgroupId,
+      isActive: true,
+      ...(format && { format }),
+    },
+    include: {
+      user: {
+        select: { username: true },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return decks.map((d) => ({
+    id: d.id,
+    name: d.name,
+    format: d.format,
+    commander1: d.commander1,
+    commander2: d.commander2,
+    bracket: d.bracket,
+    createdBy: { username: d.user.username },
+  }));
 }

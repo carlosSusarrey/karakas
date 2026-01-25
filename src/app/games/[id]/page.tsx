@@ -25,15 +25,33 @@ export default async function GameDetailPage({
     where: { id },
     include: {
       createdBy: true,
+      playgroup: {
+        select: { id: true, name: true },
+      },
       players: {
         include: {
           deck: true,
+          user: {
+            select: { username: true },
+          },
+          playgroupPlayer: {
+            select: { name: true },
+          },
         },
         orderBy: { placement: "asc" },
       },
       powerPlays: {
         include: {
-          gamePlayer: true,
+          gamePlayer: {
+            include: {
+              user: {
+                select: { username: true },
+              },
+              playgroupPlayer: {
+                select: { name: true },
+              },
+            },
+          },
         },
         orderBy: { turn: "asc" },
       },
@@ -56,8 +74,26 @@ export default async function GameDetailPage({
   const isDraw = !winner && game.players.every((p) => p.placement === 1);
 
   type GamePlayerWithDeck = (typeof game.players)[0];
+  type PowerPlayWithPlayer = (typeof game.powerPlays)[0];
 
   function getPlayerName(player: GamePlayerWithDeck) {
+    if (player.user) {
+      return player.user.username;
+    }
+    if (player.playgroupPlayer) {
+      return player.playgroupPlayer.name;
+    }
+    return player.guestName || "Unknown Player";
+  }
+
+  function getPowerPlayPlayerName(powerPlay: PowerPlayWithPlayer) {
+    const player = powerPlay.gamePlayer;
+    if (player.user) {
+      return player.user.username;
+    }
+    if (player.playgroupPlayer) {
+      return player.playgroupPlayer.name;
+    }
     return player.guestName || "Unknown Player";
   }
 
@@ -112,9 +148,15 @@ export default async function GameDetailPage({
       <main className="flex-1 px-6 py-8">
         <div className="max-w-3xl mx-auto">
           <div className="mb-8">
-            <Link href="/games" className="text-zinc-400 hover:text-zinc-300 text-sm">
-              ← Back to Games
-            </Link>
+            {game.playgroup ? (
+              <Link href={`/playgroups/${game.playgroup.id}`} className="text-zinc-400 hover:text-zinc-300 text-sm">
+                ← Back to {game.playgroup.name}
+              </Link>
+            ) : (
+              <Link href="/games" className="text-zinc-400 hover:text-zinc-300 text-sm">
+                ← Back to Games
+              </Link>
+            )}
           </div>
 
           {/* Game Summary */}
@@ -228,7 +270,7 @@ export default async function GameDetailPage({
                         {POWER_PLAY_LABELS[play.type as PowerPlayType]}
                       </span>
                       <span className="text-zinc-400 text-sm">
-                        {play.gamePlayer.guestName || "Unknown Player"}
+                        {getPowerPlayPlayerName(play)}
                       </span>
                     </div>
                     <div className="text-zinc-300">

@@ -18,14 +18,32 @@ export default async function PlayGamePage({
   const game = await db.game.findUnique({
     where: { id },
     include: {
+      playgroup: {
+        select: { id: true, name: true },
+      },
       players: {
         include: {
           deck: true,
+          user: {
+            select: { id: true, username: true },
+          },
+          playgroupPlayer: {
+            select: { id: true, name: true },
+          },
         },
       },
       powerPlays: {
         include: {
-          gamePlayer: true,
+          gamePlayer: {
+            include: {
+              user: {
+                select: { username: true },
+              },
+              playgroupPlayer: {
+                select: { name: true },
+              },
+            },
+          },
         },
         orderBy: { turn: "asc" },
       },

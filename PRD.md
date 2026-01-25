@@ -82,36 +82,38 @@ Decks belong to a playgroup and can be used by any member of that playgroup.
 
 ### 4. Game Logging
 
-**Status:** 🔲 Not started
+**Status:** ✅ Phase 1 complete (playgroup-based game logging)
 
 The core feature - logging MTG games within a playgroup.
 
 **Requirements:**
-- [ ] Create new game log
-- [ ] Game fields:
-  - **Playgroup** (required - game belongs to a playgroup)
+- [x] Create new game log
+- [x] Game fields:
+  - **Playgroup** (optional - game can belong to a playgroup)
   - Format
   - Date/time played
   - Total turns
   - Notes (optional)
-- [ ] Add players to game:
+- [x] Add players to game:
   - Select from playgroup members (registered users)
   - Select from playgroup players (non-registered placeholders)
   - Select deck from **any deck in the playgroup** (not just the player's own decks)
   - Alternatively, enter commander manually without a deck
   - EDH bracket for the game
-- [ ] Record results:
+- [x] Record results:
   - Winner
   - First eliminated player
   - Elimination order/placement
   - Turn eliminated (optional)
 - [ ] Edit existing games
 - [ ] Delete games
-- [ ] Game detail view
+- [x] Game detail view
+- [x] Game list with playgroup filtering
+- [x] Live game tracking (turn counter, eliminations)
 
 ### 5. Power Plays
 
-**Status:** 🔲 Not started
+**Status:** ✅ Phase 1 complete (integrated with live game tracking)
 
 Track notable plays that happen during games.
 
@@ -131,15 +133,15 @@ Track notable plays that happen during games.
 | Other | Miscellaneous notable play |
 
 **Requirements:**
-- [ ] Add power plays during game logging
-- [ ] Power play fields:
+- [x] Add power plays during game logging
+- [x] Power play fields:
   - Type (from list above)
   - Turn number
   - Description
   - Card name (optional)
   - Player who made the play
-- [ ] Edit/delete power plays
-- [ ] View power plays on game detail page
+- [x] Edit/delete power plays
+- [x] View power plays on game detail page
 
 ### 6. Statistics Dashboard
 
@@ -314,23 +316,21 @@ src/
 - Playgroup dashboard with member list
 - Settings page with delete functionality
 
-### Phase 3: Playgroup-Based Game Logging ⬅️ Next
+### Phase 3: Playgroup-Based Game Logging ✅ Complete
 - Update game logging to work within playgroup context
 - Select players from playgroup members + playgroup players
 - Select decks from any deck in the playgroup
 - Add players and results
 - Game history list (filterable by playgroup)
+- Live game tracking with turn counter and eliminations
+- Power play tracking during games
 
-### Phase 4: Player Claiming
+### Phase 4: Player Claiming ⬅️ Next
 - Allow new users to claim existing playgroup players
 - Merge game history when claiming
 - Email-based claim invitations
 
-### Phase 5: Power Plays
-- Add power play tracking to game logging
-- Power play types and descriptions
-
-### Phase 6: Statistics
+### Phase 5: Statistics
 - Personal stats dashboard
 - Deck performance stats
 - Win rate calculations

@@ -4,24 +4,73 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FORMAT_LABELS, type MtgFormat } from "@/types/mtg";
 
-export default async function GamesPage() {
+export default async function GamesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ playgroup?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");
   }
 
-  // Get games where user is creator or a player
+  const { playgroup: playgroupId } = await searchParams;
+
+  // If playgroup filter is specified, verify user is a member
+  let playgroup = null;
+  if (playgroupId) {
+    const membership = await db.playgroupMember.findUnique({
+      where: {
+        playgroupId_userId: {
+          playgroupId,
+          userId: user.id,
+        },
+      },
+      include: {
+        playgroup: true,
+      },
+    });
+    if (membership) {
+      playgroup = membership.playgroup;
+    }
+  }
+
+  // Get user's playgroups for the filter dropdown
+  const userPlaygroups = await db.playgroupMember.findMany({
+    where: { userId: user.id },
+    include: {
+      playgroup: {
+        select: { id: true, name: true },
+      },
+    },
+    orderBy: { playgroup: { name: "asc" } },
+  });
+
+  // Get games where user is creator or a player, optionally filtered by playgroup
   const games = await db.game.findMany({
     where: {
-      OR: [
-        { createdById: user.id },
-        { players: { some: { userId: user.id } } },
-      ],
+      ...(playgroupId
+        ? { playgroupId }
+        : {
+            OR: [
+              { createdById: user.id },
+              { players: { some: { userId: user.id } } },
+            ],
+          }),
     },
     include: {
+      playgroup: {
+        select: { id: true, name: true },
+      },
       players: {
         include: {
           deck: true,
+          user: {
+            select: { username: true },
+          },
+          playgroupPlayer: {
+            select: { name: true },
+          },
         },
       },
     },
@@ -36,12 +85,24 @@ export default async function GamesPage() {
     (g) => g.players.some((p) => p.isWinner) || g.players.every((p) => p.placement !== null)
   );
 
+  type GamePlayer = (typeof games)[0]["players"][0];
+
   function getWinner(game: (typeof games)[0]) {
     return game.players.find((p) => p.isWinner);
   }
 
+  function getPlayerName(player: GamePlayer) {
+    if (player.user) {
+      return player.user.username;
+    }
+    if (player.playgroupPlayer) {
+      return player.playgroupPlayer.name;
+    }
+    return player.guestName || "Unknown";
+  }
+
   function getPlayerNames(game: (typeof games)[0]) {
-    return game.players.map((p) => p.guestName || "Unknown").join(", ");
+    return game.players.map((p) => getPlayerName(p)).join(", ");
   }
 
   function formatDate(date: Date) {
@@ -104,16 +165,50 @@ export default async function GamesPage() {
             <div>
               <h1 className="text-3xl font-bold">Games</h1>
               <p className="text-zinc-400 mt-1">
-                Track and view your game history
+                {playgroup
+                  ? `Games in ${playgroup.name}`
+                  : "Track and view your game history"}
               </p>
             </div>
             <Link
-              href="/games/new"
+              href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/games/new"}
               className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Start New Game
             </Link>
           </div>
+
+          {/* Playgroup Filter */}
+          {userPlaygroups.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-zinc-400 text-sm">Filter by playgroup:</span>
+                <Link
+                  href="/games"
+                  className={`text-sm px-3 py-1 rounded-full transition-colors ${
+                    !playgroupId
+                      ? "bg-amber-600 text-white"
+                      : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                  }`}
+                >
+                  All Games
+                </Link>
+                {userPlaygroups.map(({ playgroup: pg }) => (
+                  <Link
+                    key={pg.id}
+                    href={`/games?playgroup=${pg.id}`}
+                    className={`text-sm px-3 py-1 rounded-full transition-colors ${
+                      playgroupId === pg.id
+                        ? "bg-amber-600 text-white"
+                        : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                    }`}
+                  >
+                    {pg.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* In Progress Games */}
           {inProgressGames.length > 0 && (
@@ -138,6 +233,11 @@ export default async function GamesPage() {
                           <span className="text-zinc-400 text-sm">
                             Turn {game.totalTurns || 1}
                           </span>
+                          {game.playgroup && !playgroupId && (
+                            <span className="text-zinc-500 text-sm">
+                              {game.playgroup.name}
+                            </span>
+                          )}
                         </div>
                         <div className="text-zinc-300 mt-2">
                           {getPlayerNames(game)}
@@ -161,10 +261,12 @@ export default async function GamesPage() {
                 <div className="text-4xl mb-4">🎮</div>
                 <h3 className="text-lg font-semibold mb-2">No games yet</h3>
                 <p className="text-zinc-400 mb-4">
-                  Start tracking your first game to see it here.
+                  {playgroup
+                    ? `Start tracking your first game in ${playgroup.name}.`
+                    : "Start tracking your first game to see it here."}
                 </p>
                 <Link
-                  href="/games/new"
+                  href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/games/new"}
                   className="inline-block bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-lg transition-colors"
                 >
                   Start a Game
@@ -196,6 +298,11 @@ export default async function GamesPage() {
                             <span className="text-zinc-500 text-sm">
                               {formatDate(game.playedAt)}
                             </span>
+                            {game.playgroup && !playgroupId && (
+                              <span className="text-zinc-600 text-sm">
+                                {game.playgroup.name}
+                              </span>
+                            )}
                           </div>
                           <div className="text-zinc-300">{getPlayerNames(game)}</div>
                         </div>
@@ -205,7 +312,7 @@ export default async function GamesPage() {
                           ) : winner ? (
                             <div>
                               <span className="text-amber-500 font-medium">
-                                {winner.guestName || "Winner"}
+                                {getPlayerName(winner)}
                               </span>
                             </div>
                           ) : null}
