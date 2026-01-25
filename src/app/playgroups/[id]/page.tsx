@@ -48,14 +48,6 @@ export default async function PlaygroupDashboardPage({
         orderBy: { playedAt: "desc" },
         take: 5,
       },
-      decks: {
-        where: { isActive: true },
-        include: {
-          user: { select: { id: true, username: true } },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 6,
-      },
     },
   });
 
@@ -68,6 +60,19 @@ export default async function PlaygroupDashboardPage({
   if (!membership) {
     notFound();
   }
+
+  // Fetch all decks from playgroup members (regardless of playgroupId)
+  const memberUserIds = playgroup.members.map((m) => m.userId);
+  const allMemberDecks = await db.deck.findMany({
+    where: {
+      userId: { in: memberUserIds },
+      isActive: true,
+    },
+    include: {
+      user: { select: { id: true, username: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
 
   const isOwner = playgroup.ownerId === user.id;
   const isAdmin = membership.role === "admin" || isOwner;
@@ -340,7 +345,7 @@ export default async function PlaygroupDashboardPage({
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-amber-500">
-                    {playgroup.decks.length + playgroup.players.reduce((sum, p) => sum + p.decks.length, 0)}
+                    {allMemberDecks.length + playgroup.players.reduce((sum, p) => sum + p.decks.length, 0)}
                   </div>
                   <div className="text-zinc-500 text-sm">Decks</div>
                 </div>
@@ -482,8 +487,8 @@ export default async function PlaygroupDashboardPage({
                 }))
               );
 
-              // Convert member decks to unified format
-              const memberDecks = playgroup.decks.map((deck) => ({
+              // Convert member decks to unified format (all decks from playgroup members)
+              const memberDecks = allMemberDecks.map((deck) => ({
                 ...deck,
                 ownerName: deck.user.username,
                 type: "member" as const,
