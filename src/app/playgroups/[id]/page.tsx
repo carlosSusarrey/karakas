@@ -241,9 +241,17 @@ export default async function PlaygroupDashboardPage({
                       className="flex items-center justify-between text-sm"
                     >
                       <span className="text-zinc-300">{player.name}</span>
-                      {player.linkedUserId && (
-                        <span className="text-green-500 text-xs">Linked</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {player.linkedUserId && (
+                          <span className="text-green-500 text-xs">Linked</span>
+                        )}
+                        <Link
+                          href={`/playgroups/${id}/players/${player.id}/decks`}
+                          className="text-amber-500 hover:text-amber-400 text-xs"
+                        >
+                          Decks
+                        </Link>
+                      </div>
                     </div>
                   ))}
                   {playgroup.players.length > 5 && (

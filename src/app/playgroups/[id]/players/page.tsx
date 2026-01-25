@@ -158,13 +158,14 @@ export default async function PlaygroupPlayersPage({
                         <span>{player.gamesPlayed} games</span>
                         <span>{player.wins} wins</span>
                         <span>{player.winRate}% win rate</span>
-                        <Link
-                          href={`/playgroups/${id}/players/${player.id}/decks`}
-                          className="text-amber-500 hover:text-amber-400"
-                        >
-                          {player._count.decks} decks
-                        </Link>
+                        <span>{player._count.decks} decks</span>
                       </div>
+                      <Link
+                        href={`/playgroups/${id}/players/${player.id}/decks`}
+                        className="mt-2 inline-block text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-100 px-3 py-1 rounded transition-colors"
+                      >
+                        Manage Decks
+                      </Link>
                     </div>
                     <PlayerActions
                       player={player}
