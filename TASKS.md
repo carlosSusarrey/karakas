@@ -100,7 +100,7 @@ Audit the codebase to find useEffect usages and convert them to better patterns 
 - useSyncExternalStore for external state
 - useCallback/useMemo for derived values
 
-### Files with useEffect (9 total calls in 7 files after cleanup)
+### Files with useEffect (5 total calls in 4 files after conversions)
 
 #### 1. `src/components/card-autocomplete.tsx` - 2 useEffect calls
 - **Lines 46-76**: Fetches card suggestions when debounced value changes
@@ -114,41 +114,25 @@ Audit the codebase to find useEffect usages and convert them to better patterns 
 - **Lines 102-120**: Loads decks when format changes
   - Status: ⚠️ Could be refactored with server actions
 
-#### 3. `src/app/decks/[id]/edit/page.tsx` - 1 useEffect call
-- **Lines 43-63**: Loads deck data on mount
-  - Status: ⚠️ Could be server component with data fetching
-
-#### 4. `src/hooks/use-debounce.ts` - 1 useEffect call
+#### 3. `src/hooks/use-debounce.ts` - 1 useEffect call
 - **Lines 6-14**: Debounces value changes
   - Status: ✅ Acceptable - proper custom hook pattern
 
-#### 5. `src/app/playgroups/[id]/settings/page.tsx` - 1 useEffect call
-- **Lines 32-46**: Loads playgroup data on mount
-  - Status: ⚠️ Could be server component with data fetching
-
-#### 6. `src/components/header.tsx` - 1 useEffect call
+#### 4. `src/components/header.tsx` - 1 useEffect call
 - **Lines 25-34**: Closes dropdown when clicking outside
   - Status: ✅ Acceptable - event listener cleanup pattern
 
-#### 7. `src/app/signup/page.tsx` - 1 useEffect call
-- **Lines 62-67**: Handles OAuth error from URL params
-  - Status: ⚠️ Could use searchParams prop directly in server component
-
-#### 8. `src/app/login/page.tsx` - 1 useEffect call
-- **Lines 62-67**: Handles OAuth error from URL params
-  - Status: ⚠️ Could use searchParams prop directly in server component
-
 ### Conversion Priority
 
-#### High Priority (Should be Server Components)
-- [ ] `src/app/decks/[id]/edit/page.tsx` - Data fetching on mount
-- [ ] `src/app/playgroups/[id]/settings/page.tsx` - Data fetching on mount
+#### High Priority (Should be Server Components) ✅ COMPLETE
+- [x] `src/app/decks/[id]/edit/page.tsx` - Data fetching on mount → Converted to server component
+- [x] `src/app/playgroups/[id]/settings/page.tsx` - Data fetching on mount → Converted to server component
 
-#### Medium Priority (Could be improved)
-- [ ] `src/app/games/new/page.tsx` - Complex refactoring needed
-- [ ] `src/components/card-autocomplete.tsx` - Consider React Query
-- [ ] `src/app/login/page.tsx` - URL params handling
-- [ ] `src/app/signup/page.tsx` - URL params handling
+#### Medium Priority (Could be improved) ✅ PARTIAL
+- [ ] `src/app/games/new/page.tsx` - Complex refactoring needed (deferred)
+- [ ] `src/components/card-autocomplete.tsx` - Consider React Query (acceptable as-is)
+- [x] `src/app/login/page.tsx` - URL params handling → Converted to server component + client form
+- [x] `src/app/signup/page.tsx` - URL params handling → Converted to server component + client form
 
 #### Low Priority (Acceptable patterns)
 - [x] `src/hooks/use-debounce.ts` - Proper hook pattern
@@ -160,6 +144,10 @@ Audit the codebase to find useEffect usages and convert them to better patterns 
 
 ### Completed Conversions
 - ✅ Removed unused useEffect import from reset-password page
+- ✅ `src/app/decks/[id]/edit/page.tsx` - Converted to server component with EditDeckForm client component
+- ✅ `src/app/playgroups/[id]/settings/page.tsx` - Converted to server component with PlaygroupSettingsForm client component
+- ✅ `src/app/login/page.tsx` - Converted to server component with LoginForm client component (reads searchParams server-side)
+- ✅ `src/app/signup/page.tsx` - Converted to server component with SignUpForm client component (reads searchParams server-side)
 
 ---
 
@@ -203,3 +191,23 @@ Audit the codebase to find useEffect usages and convert them to better patterns 
   - Installed `@testing-library/jest-dom`
   - Updated `vitest.setup.ts` with jest-dom matchers
 - Total test count: 373 tests (was 219)
+
+### Session 3 - 2026-01-25 (continued)
+- **Converted useEffect data-fetching pages to server components:**
+  - `src/app/decks/[id]/edit/page.tsx` → Server component + EditDeckForm client component
+  - `src/app/playgroups/[id]/settings/page.tsx` → Server component + PlaygroupSettingsForm client component
+  - `src/app/login/page.tsx` → Server component + LoginForm client component
+  - `src/app/signup/page.tsx` → Server component + SignUpForm client component
+- **Benefits of conversions:**
+  - Eliminated 4 useEffect calls for data fetching
+  - Server-side rendering for faster initial page loads
+  - Better SEO (server-rendered content)
+  - Simpler error handling (redirects on server instead of client)
+  - URL params read server-side without useSearchParams hook
+- **Remaining useEffect usages (5 total, all acceptable):**
+  - 2 in card-autocomplete.tsx (debounced fetch + click outside)
+  - 2 in games/new/page.tsx (complex form state - deferred)
+  - 1 in use-debounce.ts (proper hook pattern)
+  - 1 in header.tsx (click outside dropdown)
+- All tests passing (373 tests)
+- Build successful
