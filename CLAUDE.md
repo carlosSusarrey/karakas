@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -27,6 +27,9 @@ npm run test:watch    # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report
 npm run test:e2e      # Run Playwright E2E tests
 npm run test:e2e:ui   # Run E2E tests with Playwright UI
+
+# Run a single test file
+npx vitest run src/path/to/test.test.ts
 ```
 
 ## Architecture
@@ -35,7 +38,9 @@ npm run test:e2e:ui   # Run E2E tests with Playwright UI
 
 **Structure:**
 - `src/app/` - Next.js App Router pages and layouts
-- `src/lib/` - Shared utilities (db client, auth, session)
+- `src/app/**/actions.ts` - Server Actions for form submissions and mutations
+- `src/components/` - Shared React components (Header, CommanderImage, CardAutocomplete)
+- `src/lib/` - Shared utilities (db client, auth, session, scryfall)
 - `src/types/` - TypeScript type definitions (MTG formats, power plays)
 - `src/generated/prisma/` - Generated Prisma client (gitignored)
 - `prisma/` - Database schema and migrations
@@ -43,21 +48,19 @@ npm run test:e2e:ui   # Run E2E tests with Playwright UI
 
 **Database:** SQLite with Prisma 7 ORM
 
-**Models:**
-- User - Players with email/password or OAuth
-- OAuthAccount - OAuth provider connections
-- Session - User sessions
-- Deck - User's decks with format, commander, bracket
-- Game - Game sessions with format, turns, notes
-- GamePlayer - Links players/decks to games with results
-- PowerPlay - Notable plays within games
+**Key Models:**
+- User, Session, OAuthAccount - Authentication
+- Playgroup, PlaygroupMember, PlaygroupPlayer - Group management (PlaygroupPlayer = non-registered players)
+- Deck, PlaygroupPlayerDeck - Deck management (with commander1, commander2, bracket fields)
+- Game, GamePlayer, PowerPlay - Game tracking
 
 **Key patterns:**
 - Server Components by default (no 'use client' unless needed)
+- Server Actions in `actions.ts` files use `"use server"` directive, return `{ success: true, ... } | { error: string }`
 - Tailwind for all styling with dark mode (zinc/amber palette)
-- Geist Sans/Mono fonts via next/font
 - Cookie-based sessions via `src/lib/session.ts`
-- Use `getCurrentUser()` from `src/lib/auth.ts` for auth
+- Use `getCurrentUser()` from `src/lib/auth.ts` for auth checks
+- Scryfall API integration in `src/lib/scryfall.ts` for card images and autocomplete
 
 **TypeScript:** Strict mode enabled. Target ES2017.
 
@@ -72,13 +75,6 @@ npm run test:e2e:ui   # Run E2E tests with Playwright UI
 - `src/app/*/__tests__/` - Integration tests for routes/actions
 - `tests/e2e/` - End-to-end tests
 
-**Test patterns:**
-- Use `describe`/`it` blocks for organization
-- Mock Prisma client for unit tests
-- Use test database for integration tests
-- E2E tests run against dev server
-
 **Running tests:**
 - Always run `npm run test` before committing
 - Run `npm run test:e2e` for full user flow validation
-- See PRD.md for complete test case specifications
