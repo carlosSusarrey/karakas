@@ -17,6 +17,7 @@ import {
   deletePlaygroupPlayerDeck,
   toggleArchivePlaygroupPlayerDeck,
 } from "./actions";
+import { CardAutocomplete } from "@/components/card-autocomplete";
 
 type Deck = {
   id: string;
@@ -41,6 +42,8 @@ export function DeckActions({ deck, canDelete }: Props) {
   const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
   const [error, setError] = useState<string | null>(null);
   const [format, setFormat] = useState<MtgFormat>(deck.format as MtgFormat);
+  const [commander1, setCommander1] = useState(deck.commander1 || "");
+  const [commander2, setCommander2] = useState(deck.commander2 || "");
 
   const showCommanderFields = COMMANDER_FORMATS.includes(format);
   const showBracketField = BRACKET_FORMATS.includes(format);
@@ -159,23 +162,29 @@ export function DeckActions({ deck, canDelete }: Props) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs text-zinc-400 mb-1">Commander</label>
-              <input
-                type="text"
+              <CardAutocomplete
+                id="edit-commander1"
                 name="commander1"
-                defaultValue={deck.commander1 || ""}
+                value={commander1}
+                onChange={setCommander1}
                 placeholder="Commander name"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
+                commanderOnly={true}
+                showPreview={true}
+                className="bg-zinc-800 text-sm"
               />
             </div>
 
             <div>
               <label className="block text-xs text-zinc-400 mb-1">Partner</label>
-              <input
-                type="text"
+              <CardAutocomplete
+                id="edit-commander2"
                 name="commander2"
-                defaultValue={deck.commander2 || ""}
+                value={commander2}
+                onChange={setCommander2}
                 placeholder="If using partners"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
+                commanderOnly={true}
+                showPreview={true}
+                className="bg-zinc-800 text-sm"
               />
             </div>
           </div>
@@ -224,6 +233,8 @@ export function DeckActions({ deck, canDelete }: Props) {
               setMode("view");
               setError(null);
               setFormat(deck.format as MtgFormat);
+              setCommander1(deck.commander1 || "");
+              setCommander2(deck.commander2 || "");
             }}
             className="text-zinc-400 hover:text-zinc-300 text-sm px-3 py-1"
           >
