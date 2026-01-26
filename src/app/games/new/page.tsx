@@ -444,8 +444,8 @@ function NewGameForm() {
                         </div>
                       )}
 
-                      {/* Commander Fields (conditional) */}
-                      {showCommander && (
+                      {/* Commander Fields - only show if no deck selected */}
+                      {showCommander && !player.deckId && !player.playgroupPlayerDeckId && (
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-sm text-zinc-400 mb-1">
@@ -486,8 +486,8 @@ function NewGameForm() {
                         </div>
                       )}
 
-                      {/* Bracket Field (conditional) */}
-                      {showBracket && (
+                      {/* Bracket Field - only show if no deck selected */}
+                      {showBracket && !player.deckId && !player.playgroupPlayerDeckId && (
                         <div>
                           <label className="block text-sm text-zinc-400 mb-1">
                             EDH Bracket

@@ -200,21 +200,27 @@ export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupDa
         },
         orderBy: { name: "asc" },
       },
-      decks: {
-        where: { isActive: true },
-        include: {
-          user: {
-            select: { username: true },
-          },
-        },
-        orderBy: { name: "asc" },
-      },
     },
   });
 
   if (!playgroup) {
     return null;
   }
+
+  // Get member user IDs and fetch their decks separately
+  const memberUserIds = playgroup.members.map((m) => m.user.id);
+  const memberDecks = await db.deck.findMany({
+    where: {
+      userId: { in: memberUserIds },
+      isActive: true,
+    },
+    include: {
+      user: {
+        select: { username: true },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
 
   return {
     id: playgroup.id,
@@ -248,7 +254,7 @@ export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupDa
         playerName: p.name,
       }))
     ),
-    decks: playgroup.decks.map((d) => ({
+    decks: memberDecks.map((d) => ({
       id: d.id,
       name: d.name,
       format: d.format,
@@ -266,23 +272,23 @@ export async function getPlaygroupDecks(playgroupId: string, format?: string): P
     return [];
   }
 
-  // Verify user is a member
-  const membership = await db.playgroupMember.findUnique({
-    where: {
-      playgroupId_userId: {
-        playgroupId,
-        userId: user.id,
-      },
-    },
+  // Verify user is a member and get all member user IDs
+  const members = await db.playgroupMember.findMany({
+    where: { playgroupId },
+    select: { userId: true },
   });
 
-  if (!membership) {
+  const memberUserIds = members.map((m) => m.userId);
+
+  // Check if current user is a member
+  if (!memberUserIds.includes(user.id)) {
     return [];
   }
 
+  // Fetch decks owned by any playgroup member
   const decks = await db.deck.findMany({
     where: {
-      playgroupId,
+      userId: { in: memberUserIds },
       isActive: true,
       ...(format && { format }),
     },
