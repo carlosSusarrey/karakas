@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { FORMAT_LABELS, type MtgFormat } from "@/types/mtg";
 import { DeckForm } from "./deck-form";
 import { DeckActions } from "./deck-actions";
+import { MergeDecks } from "./merge-decks";
 import { Header } from "@/components/header";
 
 export default async function PlaygroupPlayerDecksPage({
@@ -97,6 +98,23 @@ export default async function PlaygroupPlayerDecksPage({
           <div className="mb-8">
             <DeckForm playerId={playerId} />
           </div>
+
+          {/* Merge Decks - only show for admins with 2+ active decks */}
+          {isAdmin && activeDecks.length >= 2 && (
+            <div className="mb-8">
+              <MergeDecks
+                playerId={playerId}
+                decks={activeDecks.map((d) => ({
+                  id: d.id,
+                  name: d.name,
+                  format: d.format,
+                  commander1: d.commander1,
+                  commander2: d.commander2,
+                  _count: d._count,
+                }))}
+              />
+            </div>
+          )}
 
           {/* Active Decks */}
           <div className="mb-8">

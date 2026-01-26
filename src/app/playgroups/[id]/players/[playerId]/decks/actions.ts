@@ -262,3 +262,128 @@ export async function toggleArchivePlaygroupPlayerDeck(
     return { error: "Failed to update deck. Please try again." };
   }
 }
+
+export async function mergePlaygroupPlayerDecks(
+  targetDeckId: string,
+  sourceDeckIds: string[]
+): Promise<{ success: true; mergedGames: number } | { error: string }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  if (sourceDeckIds.length === 0) {
+    return { error: "No source decks selected" };
+  }
+
+  if (sourceDeckIds.includes(targetDeckId)) {
+    return { error: "Target deck cannot be in source decks" };
+  }
+
+  // Get the target deck and verify user is admin/owner
+  const targetDeck = await db.playgroupPlayerDeck.findUnique({
+    where: { id: targetDeckId },
+    include: {
+      playgroupPlayer: {
+        select: { playgroupId: true, id: true },
+      },
+    },
+  });
+
+  if (!targetDeck) {
+    return { error: "Target deck not found" };
+  }
+
+  const membership = await db.playgroupMember.findUnique({
+    where: {
+      playgroupId_userId: {
+        playgroupId: targetDeck.playgroupPlayer.playgroupId,
+        userId: user.id,
+      },
+    },
+  });
+
+  if (!membership || membership.role === "member") {
+    return { error: "Only admins can merge decks" };
+  }
+
+  // Verify all source decks exist and belong to the same player
+  const sourceDecks = await db.playgroupPlayerDeck.findMany({
+    where: {
+      id: { in: sourceDeckIds },
+      playgroupPlayerId: targetDeck.playgroupPlayerId,
+    },
+  });
+
+  if (sourceDecks.length !== sourceDeckIds.length) {
+    return { error: "One or more source decks not found or belong to different player" };
+  }
+
+  try {
+    let mergedGames = 0;
+
+    await db.$transaction(async (tx) => {
+      // Update all game records from source decks to target deck
+      for (const sourceDeck of sourceDecks) {
+        const updated = await tx.gamePlayer.updateMany({
+          where: { playgroupPlayerDeckId: sourceDeck.id },
+          data: { playgroupPlayerDeckId: targetDeckId },
+        });
+        mergedGames += updated.count;
+      }
+
+      // Archive the source decks (soft delete)
+      await tx.playgroupPlayerDeck.updateMany({
+        where: { id: { in: sourceDeckIds } },
+        data: { isActive: false },
+      });
+    });
+
+    revalidatePath(
+      `/playgroups/${targetDeck.playgroupPlayer.playgroupId}/players/${targetDeck.playgroupPlayer.id}/decks`
+    );
+    return { success: true, mergedGames };
+  } catch (error) {
+    console.error("Failed to merge decks:", error);
+    return { error: "Failed to merge decks. Please try again." };
+  }
+}
+
+export async function getPlayerDecksForMerge(playerId: string) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  const player = await db.playgroupPlayer.findUnique({
+    where: { id: playerId },
+    select: { playgroupId: true },
+  });
+
+  if (!player) {
+    return { error: "Player not found" };
+  }
+
+  const membership = await db.playgroupMember.findUnique({
+    where: {
+      playgroupId_userId: {
+        playgroupId: player.playgroupId,
+        userId: user.id,
+      },
+    },
+  });
+
+  if (!membership) {
+    return { error: "You are not a member of this playgroup" };
+  }
+
+  const decks = await db.playgroupPlayerDeck.findMany({
+    where: { playgroupPlayerId: playerId, isActive: true },
+    include: {
+      _count: { select: { gamePlayers: true } },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return { decks };
+}

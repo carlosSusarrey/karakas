@@ -46,6 +46,11 @@ export default async function PlaygroupPlayersPage({
 
   const isAdmin = membership.role === "admin" || membership.role === "owner";
 
+  // Check if current user already has a linked player in this playgroup
+  const userLinkedPlayer = playgroup.players.find(
+    (p) => p.linkedUserId === user.id
+  );
+
   // Get stats for each player
   const playersWithStats = await Promise.all(
     playgroup.players.map(async (player) => {
@@ -144,6 +149,7 @@ export default async function PlaygroupPlayersPage({
                       canDelete={isAdmin && player._count.gamePlayers === 0}
                       canEdit={true}
                       canInvite={isAdmin && !player.linkedUserId}
+                      canClaimSelf={!player.linkedUserId && !userLinkedPlayer}
                     />
                   </div>
                 ))}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updatePlaygroupPlayer, deletePlaygroupPlayer, sendClaimInvitation } from "./actions";
+import { updatePlaygroupPlayer, deletePlaygroupPlayer, sendClaimInvitation, claimPlayerDirectly } from "./actions";
 
 type Player = {
   id: string;
@@ -16,14 +16,15 @@ type Props = {
   canDelete: boolean;
   canEdit: boolean;
   canInvite?: boolean;
+  canClaimSelf?: boolean;
 };
 
-export function PlayerActions({ player, canDelete, canEdit, canInvite = false }: Props) {
+export function PlayerActions({ player, canDelete, canEdit, canInvite = false, canClaimSelf = false }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [mode, setMode] = useState<"view" | "edit" | "delete" | "invite">("view");
+  const [mode, setMode] = useState<"view" | "edit" | "delete" | "invite" | "claim">("view");
   const [name, setName] = useState(player.name);
   const [email, setEmail] = useState(player.email || "");
   const [inviteEmail, setInviteEmail] = useState(player.email || "");
@@ -193,6 +194,61 @@ export function PlayerActions({ player, canDelete, canEdit, canInvite = false }:
     );
   }
 
+  if (mode === "claim") {
+    async function handleClaimSelf() {
+      setError(null);
+      setSuccessMessage(null);
+      startTransition(async () => {
+        const result = await claimPlayerDirectly(player.id);
+
+        if ("error" in result && result.error) {
+          setError(result.error);
+        } else if ("success" in result) {
+          setSuccessMessage(
+            `Claimed! ${result.gamesLinked} games and ${result.decksLinked} decks linked.`
+          );
+          setTimeout(() => {
+            setMode("view");
+            setSuccessMessage(null);
+            router.refresh();
+          }, 3000);
+        }
+      });
+    }
+
+    return (
+      <div className="flex flex-col gap-2">
+        {error && <span className="text-red-400 text-xs">{error}</span>}
+        {successMessage && (
+          <span className="text-green-400 text-xs">{successMessage}</span>
+        )}
+        {!successMessage && (
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-400 text-xs">
+              Claim {player.name} as your account?
+            </span>
+            <button
+              onClick={handleClaimSelf}
+              disabled={isPending}
+              className="text-amber-400 hover:text-amber-300 text-xs font-medium disabled:opacity-50"
+            >
+              {isPending ? "..." : "Yes, claim"}
+            </button>
+            <button
+              onClick={() => {
+                setMode("view");
+                setError(null);
+              }}
+              className="text-zinc-400 hover:text-zinc-300 text-xs"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // View mode - show buttons if user is not linked
   if (player.linkedUserId) {
     return null; // Can't edit linked players
@@ -200,6 +256,14 @@ export function PlayerActions({ player, canDelete, canEdit, canInvite = false }:
 
   return (
     <div className="flex items-center gap-2">
+      {canClaimSelf && (
+        <button
+          onClick={() => setMode("claim")}
+          className="text-amber-400 hover:text-amber-300 text-xs font-medium"
+        >
+          Claim as Me
+        </button>
+      )}
       {canInvite && (
         <button
           onClick={() => setMode("invite")}

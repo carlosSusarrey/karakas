@@ -424,3 +424,123 @@ export async function getClaimTokenInfo(token: string) {
     decksCount: claimToken.playgroupPlayer._count.decks,
   };
 }
+
+export async function claimPlayerDirectly(playerId: string) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  // Find the player with all related data
+  const player = await db.playgroupPlayer.findUnique({
+    where: { id: playerId },
+    include: {
+      playgroup: true,
+      decks: true,
+      gamePlayers: true,
+    },
+  });
+
+  if (!player) {
+    return { error: "Player not found" };
+  }
+
+  // Check if already claimed
+  if (player.linkedUserId) {
+    return { error: "This player has already been claimed" };
+  }
+
+  // Check if user is a member of the playgroup
+  const membership = await db.playgroupMember.findUnique({
+    where: {
+      playgroupId_userId: {
+        playgroupId: player.playgroupId,
+        userId: user.id,
+      },
+    },
+  });
+
+  if (!membership) {
+    return { error: "You must be a member of this playgroup to claim a player" };
+  }
+
+  // Check if user already has a linked player in this playgroup
+  const existingLinkedPlayer = await db.playgroupPlayer.findFirst({
+    where: {
+      playgroupId: player.playgroupId,
+      linkedUserId: user.id,
+    },
+  });
+
+  if (existingLinkedPlayer) {
+    return { error: "You already have a linked player in this playgroup" };
+  }
+
+  try {
+    let decksCreated = 0;
+
+    await db.$transaction(async (tx) => {
+      // Link the player to the user
+      await tx.playgroupPlayer.update({
+        where: { id: player.id },
+        data: { linkedUserId: user.id },
+      });
+
+      // Update all game history to reference the user
+      await tx.gamePlayer.updateMany({
+        where: { playgroupPlayerId: player.id },
+        data: { userId: user.id },
+      });
+
+      // Create user decks from playgroup player decks and link them
+      for (const ppDeck of player.decks) {
+        if (!ppDeck.linkedDeckId && ppDeck.isActive) {
+          // Create a new user deck from the playgroup player deck
+          const newDeck = await tx.deck.create({
+            data: {
+              userId: user.id,
+              playgroupId: player.playgroupId,
+              name: ppDeck.name,
+              format: ppDeck.format,
+              commander1: ppDeck.commander1,
+              commander2: ppDeck.commander2,
+              bracket: ppDeck.bracket,
+              decklistUrl: ppDeck.decklistUrl,
+              isActive: ppDeck.isActive,
+            },
+          });
+
+          // Link the playgroup player deck to the new user deck
+          await tx.playgroupPlayerDeck.update({
+            where: { id: ppDeck.id },
+            data: { linkedDeckId: newDeck.id },
+          });
+
+          // Update all game history to use the new deck
+          await tx.gamePlayer.updateMany({
+            where: { playgroupPlayerDeckId: ppDeck.id },
+            data: { deckId: newDeck.id },
+          });
+
+          decksCreated++;
+        }
+      }
+
+      // Delete any existing claim tokens for this player
+      await tx.playgroupPlayerClaimToken.deleteMany({
+        where: { playgroupPlayerId: playerId },
+      });
+    });
+
+    return {
+      success: true,
+      playgroupId: player.playgroupId,
+      playgroupName: player.playgroup.name,
+      gamesLinked: player.gamePlayers.length,
+      decksLinked: decksCreated,
+    };
+  } catch (error) {
+    console.error("Failed to claim player:", error);
+    return { error: "Failed to claim player" };
+  }
+}
