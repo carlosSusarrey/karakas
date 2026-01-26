@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { createPlaygroup } from "../actions";
 import { MTG_FORMATS, FORMAT_LABELS, type MtgFormat } from "@/types/mtg";
 import { Header } from "@/components/header";
+import { AlertMessage } from "@/components/alert-message";
 
 export default function NewPlaygroupPage() {
   const router = useRouter();
@@ -57,11 +58,7 @@ export default function NewPlaygroupPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-900/50 border border-red-800 text-red-200 px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
+            {error && <AlertMessage variant="error">{error}</AlertMessage>}
 
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-4">
               {/* Name */}

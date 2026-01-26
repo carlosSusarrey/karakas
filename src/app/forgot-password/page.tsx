@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { requestPasswordReset } from "./actions";
+import { AlertMessage } from "@/components/alert-message";
 
 export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -68,11 +69,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-red-900/50 border border-red-800 text-red-200 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
+          {error && <AlertMessage variant="error">{error}</AlertMessage>}
 
           <div>
             <label

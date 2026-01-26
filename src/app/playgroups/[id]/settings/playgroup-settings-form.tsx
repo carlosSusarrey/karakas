@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { MTG_FORMATS, FORMAT_LABELS, type MtgFormat } from "@/types/mtg";
+import { AlertMessage } from "@/components/alert-message";
 
 type Playgroup = {
   id: string;
@@ -77,14 +78,10 @@ export function PlaygroupSettingsForm({
     <>
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
-          <div className="bg-red-900/50 border border-red-800 text-red-200 px-4 py-3 rounded-lg">
-            {error}
-          </div>
+          <AlertMessage variant="error">{error}</AlertMessage>
         )}
         {success && (
-          <div className="bg-green-900/50 border border-green-800 text-green-200 px-4 py-3 rounded-lg">
-            {success}
-          </div>
+          <AlertMessage variant="success">{success}</AlertMessage>
         )}
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-4">

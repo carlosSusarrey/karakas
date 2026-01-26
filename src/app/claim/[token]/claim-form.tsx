@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { claimPlayer } from "@/app/playgroups/[id]/players/actions";
+import { AlertMessage } from "@/components/alert-message";
 
 type Props = {
   token: string;
@@ -79,9 +80,9 @@ export function ClaimForm({ token }: Props) {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg text-sm">
+        <AlertMessage variant="error" className="text-sm">
           {error}
-        </div>
+        </AlertMessage>
       )}
 
       <p className="text-center text-zinc-400 text-sm">

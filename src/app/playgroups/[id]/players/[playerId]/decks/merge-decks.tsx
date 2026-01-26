@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { mergePlaygroupPlayerDecks } from "./actions";
+import { AlertMessage } from "@/components/alert-message";
 
 type Deck = {
   id: string;
@@ -122,15 +123,15 @@ export function MergeDecks({ playerId, decks }: Props) {
       </p>
 
       {error && (
-        <div className="bg-red-900/50 border border-red-800 text-red-200 px-3 py-2 rounded-lg text-sm mb-4">
+        <AlertMessage variant="error" className="text-sm mb-4">
           {error}
-        </div>
+        </AlertMessage>
       )}
 
       {successMessage && (
-        <div className="bg-green-900/50 border border-green-800 text-green-200 px-3 py-2 rounded-lg text-sm mb-4">
+        <AlertMessage variant="success" className="text-sm mb-4">
           {successMessage}
-        </div>
+        </AlertMessage>
       )}
 
       {!successMessage && (

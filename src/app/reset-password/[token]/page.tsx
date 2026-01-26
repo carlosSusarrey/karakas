@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { resetPassword } from "./actions";
+import { AlertMessage } from "@/components/alert-message";
 
 export default function ResetPasswordPage() {
   const params = useParams();
@@ -73,11 +74,7 @@ export default function ResetPasswordPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-red-900/50 border border-red-800 text-red-200 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
+          {error && <AlertMessage variant="error">{error}</AlertMessage>}
 
           <div>
             <label

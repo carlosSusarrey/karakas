@@ -18,6 +18,7 @@ import {
   toggleArchivePlaygroupPlayerDeck,
 } from "./actions";
 import { CardAutocomplete } from "@/components/card-autocomplete";
+import { AlertMessage } from "@/components/alert-message";
 
 type Deck = {
   id: string;
@@ -124,9 +125,9 @@ export function DeckActions({ deck, canDelete }: Props) {
     return (
       <form onSubmit={handleEdit} className="w-full mt-3 space-y-3">
         {error && (
-          <div className="bg-red-900/50 border border-red-800 text-red-200 px-3 py-2 rounded-lg text-sm">
+          <AlertMessage variant="error" className="text-sm">
             {error}
-          </div>
+          </AlertMessage>
         )}
 
         <div className="grid gap-3 sm:grid-cols-2">

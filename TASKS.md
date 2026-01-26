@@ -151,6 +151,75 @@ Audit the codebase to find useEffect usages and convert them to better patterns 
 
 ---
 
+## Task 3: Code Quality Improvements
+
+### Goal
+Reduce code duplication and improve error handling across the application.
+
+### Identified Issues
+
+#### Issue 1: Duplicate Alert Message Styling (~18 instances)
+The following pattern is repeated across many forms:
+```tsx
+// Error messages
+<div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg">
+  {error}
+</div>
+
+// Success messages
+<div className="bg-green-900/50 border border-green-700 text-green-200 px-4 py-3 rounded-lg">
+  {success}
+</div>
+```
+
+**Files affected:**
+- `src/app/friends/add-friend-form.tsx`
+- `src/app/playgroups/[id]/members/invite-form.tsx`
+- `src/app/playgroups/[id]/players/player-form.tsx`
+- `src/app/playgroups/[id]/players/[playerId]/decks/player-deck-form.tsx`
+- `src/app/games/[id]/edit/edit-game-form.tsx`
+- `src/app/decks/[id]/edit/edit-deck-form.tsx`
+- `src/app/decks/new/page.tsx`
+- `src/app/playgroups/new/page.tsx`
+- `src/app/login/login-form.tsx`
+- `src/app/signup/signup-form.tsx`
+- `src/app/forgot-password/page.tsx`
+- `src/app/reset-password/[token]/page.tsx`
+- And more...
+
+**Solution:** Create a reusable `<AlertMessage>` component
+
+#### Issue 2: Missing Error Boundaries
+No `error.tsx` files exist in the application. If server components throw errors, users see a generic error page.
+
+**Key routes that should have error boundaries:**
+- `/games` - Database queries for game list
+- `/decks` - Database queries for deck list
+- `/playgroups` - Database queries for playgroup list
+- `/stats` - Complex calculations that could fail
+- Root level `error.tsx` as a catch-all
+
+### Tasks
+
+#### Priority 1: Alert Message Component ✅ COMPLETE
+- [x] Create `src/components/alert-message.tsx` component
+- [x] Replace all error/success message divs with AlertMessage component
+- [x] Support variants: `error`, `success`, `warning`, `info`
+
+#### Priority 2: Error Boundaries ✅ COMPLETE
+- [x] Create root-level `src/app/error.tsx`
+- [x] Create `src/app/games/error.tsx`
+- [x] Create `src/app/decks/error.tsx`
+- [x] Create `src/app/playgroups/error.tsx`
+- [x] Create `src/app/stats/error.tsx`
+
+### Completed
+- ✅ AlertMessage component created with 4 variants (error, success, warning, info)
+- ✅ 17 form files updated to use AlertMessage component
+- ✅ 5 error boundary files created for graceful error handling
+
+---
+
 ## Session Log
 
 ### Session 1 - 2026-01-25
@@ -209,5 +278,38 @@ Audit the codebase to find useEffect usages and convert them to better patterns 
   - 2 in games/new/page.tsx (complex form state - deferred)
   - 1 in use-debounce.ts (proper hook pattern)
   - 1 in header.tsx (click outside dropdown)
+- All tests passing (373 tests)
+- Build successful
+
+### Session 4 - 2026-01-25 (continued)
+- **Task 3: Code Quality Improvements - COMPLETE**
+- Created `src/components/alert-message.tsx`:
+  - Reusable AlertMessage component with 4 variants: error, success, warning, info
+  - Consistent styling and accessibility (role="alert" for errors)
+  - Supports custom className for additional styling
+- Updated 17 files to use AlertMessage component:
+  - `src/app/signup/signup-form.tsx`
+  - `src/app/login/login-form.tsx`
+  - `src/app/friends/add-friend-form.tsx`
+  - `src/app/playgroups/[id]/members/invite-form.tsx`
+  - `src/app/playgroups/[id]/settings/playgroup-settings-form.tsx`
+  - `src/app/playgroups/[id]/players/player-form.tsx`
+  - `src/app/decks/[id]/edit/edit-deck-form.tsx`
+  - `src/app/games/[id]/edit/edit-game-form.tsx`
+  - `src/app/forgot-password/page.tsx`
+  - `src/app/reset-password/[token]/page.tsx`
+  - `src/app/decks/new/page.tsx`
+  - `src/app/playgroups/new/page.tsx`
+  - `src/app/claim/[token]/claim-form.tsx`
+  - `src/app/playgroups/[id]/players/[playerId]/decks/deck-form.tsx`
+  - `src/app/playgroups/[id]/players/[playerId]/decks/deck-actions.tsx`
+  - `src/app/playgroups/[id]/players/[playerId]/decks/merge-decks.tsx`
+  - `src/app/games/new/page.tsx`
+- Created 5 error boundary files:
+  - `src/app/error.tsx` - Root-level catch-all error boundary
+  - `src/app/games/error.tsx` - Games route error handling
+  - `src/app/decks/error.tsx` - Decks route error handling
+  - `src/app/playgroups/error.tsx` - Playgroups route error handling
+  - `src/app/stats/error.tsx` - Stats route error handling
 - All tests passing (373 tests)
 - Build successful

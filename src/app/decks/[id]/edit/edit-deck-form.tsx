@@ -15,6 +15,7 @@ import {
   type EdhBracket,
 } from "@/types/mtg";
 import { CardAutocomplete } from "@/components/card-autocomplete";
+import { AlertMessage } from "@/components/alert-message";
 
 interface DeckData {
   id: string;
@@ -52,11 +53,7 @@ export function EditDeckForm({ deck }: { deck: DeckData }) {
 
   return (
     <form action={handleSubmit} className="space-y-6">
-      {error && (
-        <div className="bg-red-900/50 border border-red-800 text-red-200 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
+      {error && <AlertMessage variant="error">{error}</AlertMessage>}
 
       {/* Deck Name */}
       <div>

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPlaygroupPlayer } from "./actions";
+import { AlertMessage } from "@/components/alert-message";
 
 type Props = {
   playgroupId: string;
@@ -59,9 +60,9 @@ export function PlayerForm({ playgroupId }: Props) {
       <h2 className="text-lg font-semibold mb-4">Add New Player</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-900/50 border border-red-800 text-red-200 px-3 py-2 rounded-lg text-sm">
+          <AlertMessage variant="error" className="text-sm">
             {error}
-          </div>
+          </AlertMessage>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

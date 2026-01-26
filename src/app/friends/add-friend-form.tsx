@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sendFriendRequest } from "./actions";
+import { AlertMessage } from "@/components/alert-message";
 
 export function AddFriendForm() {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
@@ -34,14 +35,14 @@ export function AddFriendForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg text-sm">
+        <AlertMessage variant="error" className="text-sm">
           {error}
-        </div>
+        </AlertMessage>
       )}
       {success && (
-        <div className="bg-green-900/50 border border-green-700 text-green-200 px-4 py-3 rounded-lg text-sm">
+        <AlertMessage variant="success" className="text-sm">
           {success}
-        </div>
+        </AlertMessage>
       )}
 
       <div className="flex gap-3">

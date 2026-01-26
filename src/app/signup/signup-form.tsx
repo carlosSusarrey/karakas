@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signup } from "./actions";
+import { AlertMessage } from "@/components/alert-message";
 
 function GoogleIcon() {
   return (
@@ -83,9 +84,9 @@ export function SignUpForm({ initialError, redirectUrl }: SignUpFormProps) {
         </div>
 
         {error && (
-          <div className="bg-red-900/50 border border-red-800 text-red-200 px-4 py-3 rounded-lg mb-4">
+          <AlertMessage variant="error" className="mb-4">
             {error}
-          </div>
+          </AlertMessage>
         )}
 
         <div className="space-y-3 mb-6">

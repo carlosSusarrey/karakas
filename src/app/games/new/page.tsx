@@ -27,6 +27,7 @@ import {
 import type { Deck } from "@/generated/prisma/client";
 import { Header } from "@/components/header";
 import { CardAutocomplete } from "@/components/card-autocomplete";
+import { AlertMessage } from "@/components/alert-message";
 
 type PlayerInput = {
   id: string;
@@ -291,11 +292,7 @@ function NewGameForm() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            {error && (
-              <div className="bg-red-900/50 border border-red-800 text-red-200 px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
+            {error && <AlertMessage variant="error">{error}</AlertMessage>}
 
             {/* Format Selection */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">

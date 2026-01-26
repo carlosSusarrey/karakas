@@ -7,6 +7,7 @@ import {
   FORMAT_LABELS,
   type MtgFormat,
 } from "@/types/mtg";
+import { AlertMessage } from "@/components/alert-message";
 
 type GamePlayer = {
   id: string;
@@ -159,11 +160,7 @@ export function EditGameForm({ game }: Props) {
 
   return (
     <div className="space-y-6">
-      {error && (
-        <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
+      {error && <AlertMessage variant="error">{error}</AlertMessage>}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Game Details */}
