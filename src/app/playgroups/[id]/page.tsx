@@ -238,6 +238,12 @@ export default async function PlaygroupDashboardPage({
               Start Game
             </Link>
             <Link
+              href={`/playgroups/${id}/stats`}
+              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 px-4 py-2 rounded-lg transition-colors"
+            >
+              View Stats
+            </Link>
+            <Link
               href={`/playgroups/${id}/players`}
               className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 px-4 py-2 rounded-lg transition-colors"
             >

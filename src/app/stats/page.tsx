@@ -89,9 +89,17 @@ export default async function StatsPage({
   const opponentStats: Record<string, { name: string; games: number; winsAgainst: number }> = {};
 
   // Track power play stats
-  const powerPlayStats: Record<string, { count: number }> = {};
+  const powerPlayStats: Record<string, { count: number; gamesWithWin: number; totalGames: number }> = {};
   let totalPowerPlays = 0;
   let gamesWithPowerPlays = 0;
+
+  // Track power play correlation with wins
+  let userPowerPlayGames = 0;
+  let userPowerPlayWins = 0;
+  let gamesWithAnyPowerPlays = 0;
+  let winsInGamesWithPowerPlays = 0;
+  let winsInGamesWithoutPowerPlays = 0;
+  let gamesWithoutPowerPlays = 0;
 
   for (const game of games) {
     // Find the user's player record in this game
@@ -181,15 +189,50 @@ export default async function StatsPage({
     }
 
     // Track power play stats (all power plays in games the user participated in)
+    const userPowerPlaysInGame = game.powerPlays.filter(
+      (pp) => pp.gamePlayerId === userPlayer.id
+    );
+    const hasUserPowerPlays = userPowerPlaysInGame.length > 0;
+
     if (game.powerPlays.length > 0) {
       gamesWithPowerPlays++;
+      gamesWithAnyPowerPlays++;
+      if (userPlayer.isWinner) {
+        winsInGamesWithPowerPlays++;
+      }
+
       for (const powerPlay of game.powerPlays) {
         totalPowerPlays++;
         const type = powerPlay.type;
         if (!powerPlayStats[type]) {
-          powerPlayStats[type] = { count: 0 };
+          powerPlayStats[type] = { count: 0, gamesWithWin: 0, totalGames: 0 };
         }
         powerPlayStats[type].count++;
+      }
+
+      // Track per-type win correlation (when user made that type of power play)
+      const userPowerPlayTypes = new Set(userPowerPlaysInGame.map((pp) => pp.type));
+      for (const type of userPowerPlayTypes) {
+        if (!powerPlayStats[type]) {
+          powerPlayStats[type] = { count: 0, gamesWithWin: 0, totalGames: 0 };
+        }
+        powerPlayStats[type].totalGames++;
+        if (userPlayer.isWinner) {
+          powerPlayStats[type].gamesWithWin++;
+        }
+      }
+    } else {
+      gamesWithoutPowerPlays++;
+      if (userPlayer.isWinner) {
+        winsInGamesWithoutPowerPlays++;
+      }
+    }
+
+    // Track user's power play games
+    if (hasUserPowerPlays) {
+      userPowerPlayGames++;
+      if (userPlayer.isWinner) {
+        userPowerPlayWins++;
       }
     }
   }
@@ -224,9 +267,24 @@ export default async function StatsPage({
 
   // Sort power play stats by count
   const topPowerPlays = Object.entries(powerPlayStats)
-    .map(([type, stats]) => ({ type, ...stats }))
+    .map(([type, stats]) => ({
+      type,
+      ...stats,
+      winRate: stats.totalGames > 0 ? Math.round((stats.gamesWithWin / stats.totalGames) * 100) : null,
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
+
+  // Calculate power play correlation stats
+  const userPowerPlayWinRate = userPowerPlayGames > 0
+    ? Math.round((userPowerPlayWins / userPowerPlayGames) * 100)
+    : null;
+  const winRateWithPowerPlays = gamesWithAnyPowerPlays > 0
+    ? Math.round((winsInGamesWithPowerPlays / gamesWithAnyPowerPlays) * 100)
+    : null;
+  const winRateWithoutPowerPlays = gamesWithoutPowerPlays > 0
+    ? Math.round((winsInGamesWithoutPowerPlays / gamesWithoutPowerPlays) * 100)
+    : null;
 
   // Calculate power plays per game average
   const powerPlaysPerGame = totalGames > 0 ? (totalPowerPlays / totalGames).toFixed(1) : "0";
@@ -452,7 +510,7 @@ export default async function StatsPage({
               </div>
 
               {/* Power Play Stats */}
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-2 gap-6 mb-8">
                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                   <h2 className="text-lg font-semibold mb-4">Power Play Stats</h2>
                   <div className="grid grid-cols-2 gap-4 mb-4">
@@ -472,12 +530,17 @@ export default async function StatsPage({
                       <h3 className="text-sm font-medium text-zinc-400">Most Common Types</h3>
                       {topPowerPlays.map((pp) => (
                         <div key={pp.type} className="flex items-center justify-between">
-                          <div className="font-medium">
-                            {POWER_PLAY_LABELS[pp.type as PowerPlayType] || pp.type}
+                          <div>
+                            <div className="font-medium">
+                              {POWER_PLAY_LABELS[pp.type as PowerPlayType] || pp.type}
+                            </div>
+                            <div className="text-zinc-500 text-sm">
+                              {pp.count} {pp.count === 1 ? "time" : "times"}
+                            </div>
                           </div>
-                          <div className="text-zinc-400">
-                            {pp.count} {pp.count === 1 ? "time" : "times"}
-                          </div>
+                          {pp.winRate !== null && pp.totalGames >= 2 && (
+                            <div className="text-amber-500 font-medium">{pp.winRate}% WR</div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -498,6 +561,53 @@ export default async function StatsPage({
                   </div>
                 </div>
               </div>
+
+              {/* Power Play Win Correlation */}
+              {gamesWithPowerPlays > 0 && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <h2 className="text-lg font-semibold mb-4">Power Play & Win Correlation</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center p-4 bg-zinc-800/50 rounded-lg">
+                      <div className="text-zinc-400 text-sm mb-1">Your Win Rate When Making Power Plays</div>
+                      <div className="text-3xl font-bold text-amber-500">
+                        {userPowerPlayWinRate !== null ? `${userPowerPlayWinRate}%` : "N/A"}
+                      </div>
+                      <div className="text-zinc-500 text-sm mt-1">
+                        {userPowerPlayGames > 0 ? `${userPowerPlayWins}/${userPowerPlayGames} games` : "No data"}
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-zinc-800/50 rounded-lg">
+                      <div className="text-zinc-400 text-sm mb-1">Win Rate in Games With Power Plays</div>
+                      <div className="text-3xl font-bold">
+                        {winRateWithPowerPlays !== null ? `${winRateWithPowerPlays}%` : "N/A"}
+                      </div>
+                      <div className="text-zinc-500 text-sm mt-1">
+                        {gamesWithAnyPowerPlays > 0 ? `${winsInGamesWithPowerPlays}/${gamesWithAnyPowerPlays} games` : "No data"}
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-zinc-800/50 rounded-lg">
+                      <div className="text-zinc-400 text-sm mb-1">Win Rate in Games Without Power Plays</div>
+                      <div className="text-3xl font-bold">
+                        {winRateWithoutPowerPlays !== null ? `${winRateWithoutPowerPlays}%` : "N/A"}
+                      </div>
+                      <div className="text-zinc-500 text-sm mt-1">
+                        {gamesWithoutPowerPlays > 0 ? `${winsInGamesWithoutPowerPlays}/${gamesWithoutPowerPlays} games` : "No data"}
+                      </div>
+                    </div>
+                  </div>
+                  {userPowerPlayWinRate !== null && winRate > 0 && (
+                    <div className="mt-4 text-center text-sm text-zinc-400">
+                      {userPowerPlayWinRate > winRate ? (
+                        <span>You win <span className="text-green-400 font-medium">{userPowerPlayWinRate - winRate}%</span> more often when making power plays</span>
+                      ) : userPowerPlayWinRate < winRate ? (
+                        <span>You win <span className="text-red-400 font-medium">{winRate - userPowerPlayWinRate}%</span> less often when making power plays</span>
+                      ) : (
+                        <span>Power plays don&apos;t seem to affect your win rate</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
