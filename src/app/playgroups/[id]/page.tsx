@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FORMAT_LABELS, type MtgFormat } from "@/types/mtg";
 import { Header } from "@/components/header";
+import { CommanderImage } from "@/components/commander-image";
 
 export default async function PlaygroupDashboardPage({
   params,
@@ -519,22 +521,52 @@ export default async function PlaygroupDashboardPage({
                             href={`/decks/${deck.id}`}
                             className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors"
                           >
-                            <div className="flex items-start justify-between">
-                              <h4 className="font-medium text-zinc-100">{deck.name}</h4>
-                              <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">
-                                {deck.ownerName}
-                              </span>
+                            <div className="flex gap-3">
+                              {deck.commander1 && (
+                                <div className="flex-shrink-0 flex gap-1">
+                                  <Suspense
+                                    fallback={
+                                      <div className="w-12 h-16 bg-zinc-800 rounded-lg animate-pulse" />
+                                    }
+                                  >
+                                    <CommanderImage
+                                      commanderName={deck.commander1}
+                                      size="small"
+                                    />
+                                  </Suspense>
+                                  {deck.commander2 && (
+                                    <Suspense
+                                      fallback={
+                                        <div className="w-12 h-16 bg-zinc-800 rounded-lg animate-pulse" />
+                                      }
+                                    >
+                                      <CommanderImage
+                                        commanderName={deck.commander2}
+                                        size="small"
+                                      />
+                                    </Suspense>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between">
+                                  <h4 className="font-medium text-zinc-100">{deck.name}</h4>
+                                  <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded ml-2">
+                                    {deck.ownerName}
+                                  </span>
+                                </div>
+                                {deck.commander1 && (
+                                  <p className="text-zinc-400 text-sm mt-1 truncate">
+                                    {deck.commander1}
+                                    {deck.commander2 && ` + ${deck.commander2}`}
+                                  </p>
+                                )}
+                                <p className="text-zinc-500 text-xs mt-1">
+                                  {FORMAT_LABELS[deck.format as MtgFormat]}
+                                  {deck.bracket && ` · Bracket ${deck.bracket}`}
+                                </p>
+                              </div>
                             </div>
-                            {deck.commander1 && (
-                              <p className="text-zinc-400 text-sm mt-1">
-                                {deck.commander1}
-                                {deck.commander2 && ` + ${deck.commander2}`}
-                              </p>
-                            )}
-                            <p className="text-zinc-500 text-xs mt-1">
-                              {FORMAT_LABELS[deck.format as MtgFormat]}
-                              {deck.bracket && ` · Bracket ${deck.bracket}`}
-                            </p>
                           </Link>
                         ))}
                       </div>
@@ -554,22 +586,52 @@ export default async function PlaygroupDashboardPage({
                             href={`/playgroups/${id}/players/${deck.playerId}/decks`}
                             className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors"
                           >
-                            <div className="flex items-start justify-between">
-                              <h4 className="font-medium text-zinc-100">{deck.name}</h4>
-                              <span className="text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">
-                                {deck.playerName}
-                              </span>
+                            <div className="flex gap-3">
+                              {deck.commander1 && (
+                                <div className="flex-shrink-0 flex gap-1">
+                                  <Suspense
+                                    fallback={
+                                      <div className="w-12 h-16 bg-zinc-800 rounded-lg animate-pulse" />
+                                    }
+                                  >
+                                    <CommanderImage
+                                      commanderName={deck.commander1}
+                                      size="small"
+                                    />
+                                  </Suspense>
+                                  {deck.commander2 && (
+                                    <Suspense
+                                      fallback={
+                                        <div className="w-12 h-16 bg-zinc-800 rounded-lg animate-pulse" />
+                                      }
+                                    >
+                                      <CommanderImage
+                                        commanderName={deck.commander2}
+                                        size="small"
+                                      />
+                                    </Suspense>
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between">
+                                  <h4 className="font-medium text-zinc-100">{deck.name}</h4>
+                                  <span className="text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded ml-2">
+                                    {deck.playerName}
+                                  </span>
+                                </div>
+                                {deck.commander1 && (
+                                  <p className="text-zinc-400 text-sm mt-1 truncate">
+                                    {deck.commander1}
+                                    {deck.commander2 && ` + ${deck.commander2}`}
+                                  </p>
+                                )}
+                                <p className="text-zinc-500 text-xs mt-1">
+                                  {FORMAT_LABELS[deck.format as MtgFormat]}
+                                  {deck.bracket && ` · Bracket ${deck.bracket}`}
+                                </p>
+                              </div>
                             </div>
-                            {deck.commander1 && (
-                              <p className="text-zinc-400 text-sm mt-1">
-                                {deck.commander1}
-                                {deck.commander2 && ` + ${deck.commander2}`}
-                              </p>
-                            )}
-                            <p className="text-zinc-500 text-xs mt-1">
-                              {FORMAT_LABELS[deck.format as MtgFormat]}
-                              {deck.bracket && ` · Bracket ${deck.bracket}`}
-                            </p>
                           </Link>
                         ))}
                       </div>
