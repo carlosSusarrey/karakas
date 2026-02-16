@@ -41,18 +41,20 @@ export async function getSession() {
     });
 
     if (!session || session.expiresAt < new Date()) {
-      // Session expired or not found
+      // Session expired or not found — clean up stale cookie
       if (session) {
         await db.session.delete({ where: { id: sessionId } }).catch(() => {});
       }
+      cookieStore.delete(SESSION_COOKIE_NAME);
       return null;
     }
 
     return session;
   } catch (error) {
-    // Log but re-throw so callers can distinguish "no session" from "DB error"
+    // Log but don't throw — treat DB errors as "no session" to avoid
+    // crashing server actions and causing silent failures on the client
     console.error("Failed to look up session:", error);
-    throw error;
+    return null;
   }
 }
 

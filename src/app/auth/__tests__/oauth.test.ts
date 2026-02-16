@@ -17,6 +17,17 @@ vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve(mockCookieStore)),
 }))
 
+// Mock next/navigation redirect (throws to halt execution, like the real one)
+const mockRedirect = vi.fn()
+vi.mock('next/navigation', () => ({
+  redirect: (...args: unknown[]) => {
+    mockRedirect(...args)
+    const error = new Error('NEXT_REDIRECT') as Error & { digest: string }
+    error.digest = `NEXT_REDIRECT;replace;${args[0]};307;`
+    throw error
+  },
+}))
+
 // Mock oauth module
 vi.mock('@/lib/oauth', () => ({
   google: {
@@ -134,30 +145,28 @@ describe('OAuth Callback Route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCookieStore.get.mockReset()
+    mockRedirect.mockReset()
   })
 
   it('redirects to login on OAuth error', async () => {
     const request = new Request('http://localhost:3000/auth/google/callback?error=access_denied')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/login?error=oauth_access_denied')
+    expect(mockRedirect).toHaveBeenCalledWith('/login?error=oauth_access_denied')
   })
 
   it('redirects to login when code is missing', async () => {
     const request = new Request('http://localhost:3000/auth/google/callback?state=test-state')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/login?error=missing_params')
+    expect(mockRedirect).toHaveBeenCalledWith('/login?error=missing_params')
   })
 
   it('redirects to login when state is missing', async () => {
     const request = new Request('http://localhost:3000/auth/google/callback?code=test-code')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/login?error=missing_params')
+    expect(mockRedirect).toHaveBeenCalledWith('/login?error=missing_params')
   })
 
   it('redirects to login when state does not match', async () => {
@@ -168,10 +177,9 @@ describe('OAuth Callback Route', () => {
     })
 
     const request = new Request('http://localhost:3000/auth/google/callback?code=test-code&state=test-state')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/login?error=invalid_state')
+    expect(mockRedirect).toHaveBeenCalledWith('/login?error=invalid_state')
   })
 
   it('redirects to login for invalid provider', async () => {
@@ -181,10 +189,9 @@ describe('OAuth Callback Route', () => {
     })
 
     const request = new Request('http://localhost:3000/auth/invalid/callback?code=test-code&state=test-state')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'invalid' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'invalid' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/login?error=invalid_provider')
+    expect(mockRedirect).toHaveBeenCalledWith('/login?error=invalid_provider')
   })
 
   it('creates session for existing OAuth user', async () => {
@@ -226,12 +233,10 @@ describe('OAuth Callback Route', () => {
     })
 
     const request = new Request('http://localhost:3000/auth/google/callback?code=test-code&state=test-state')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/')
-    expect(response.headers.get('location')).not.toContain('/login')
     expect(createSession).toHaveBeenCalledWith('user-1')
+    expect(mockRedirect).toHaveBeenCalledWith('/')
   })
 
   it('links OAuth account to existing user with same email', async () => {
@@ -271,11 +276,8 @@ describe('OAuth Callback Route', () => {
     })
 
     const request = new Request('http://localhost:3000/auth/google/callback?code=test-code&state=test-state')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/')
-    expect(response.headers.get('location')).not.toContain('/login')
     expect(db.oAuthAccount.create).toHaveBeenCalledWith({
       data: {
         userId: 'user-1',
@@ -284,6 +286,7 @@ describe('OAuth Callback Route', () => {
       },
     })
     expect(createSession).toHaveBeenCalledWith('user-1')
+    expect(mockRedirect).toHaveBeenCalledWith('/')
   })
 
   it('creates new user for new OAuth account', async () => {
@@ -323,11 +326,8 @@ describe('OAuth Callback Route', () => {
     })
 
     const request = new Request('http://localhost:3000/auth/google/callback?code=test-code&state=test-state')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/')
-    expect(response.headers.get('location')).not.toContain('/login')
     expect(db.user.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         email: 'newuser@example.com',
@@ -335,6 +335,7 @@ describe('OAuth Callback Route', () => {
       }),
     })
     expect(createSession).toHaveBeenCalledWith('new-user-1')
+    expect(mockRedirect).toHaveBeenCalledWith('/')
   })
 
   it('redirects to login when no email returned', async () => {
@@ -360,10 +361,9 @@ describe('OAuth Callback Route', () => {
     })
 
     const request = new Request('http://localhost:3000/auth/google/callback?code=test-code&state=test-state')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/login?error=no_email')
+    expect(mockRedirect).toHaveBeenCalledWith('/login?error=no_email')
   })
 
   it('redirects to login on OAuth failure', async () => {
@@ -376,9 +376,8 @@ describe('OAuth Callback Route', () => {
     vi.mocked(google?.validateAuthorizationCode).mockRejectedValue(new Error('Invalid code'))
 
     const request = new Request('http://localhost:3000/auth/google/callback?code=invalid-code&state=test-state')
-    const response = await oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })
+    await expect(oauthCallback(request, { params: Promise.resolve({ provider: 'google' }) })).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(response.status).toBe(307)
-    expect(response.headers.get('location')).toContain('/login?error=oauth_failed')
+    expect(mockRedirect).toHaveBeenCalledWith('/login?error=oauth_failed')
   })
 })

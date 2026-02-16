@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 import { google, discord, apple, type OAuthProvider } from "@/lib/oauth";
 import { db } from "@/lib/db";
 import { createSession } from "@/lib/session";
@@ -203,15 +203,11 @@ export async function GET(
   // Handle OAuth errors
   if (error) {
     console.error(`OAuth error from ${provider}:`, error);
-    return NextResponse.redirect(
-      new URL(`/login?error=oauth_${error}`, url.origin)
-    );
+    redirect(`/login?error=oauth_${error}`);
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(
-      new URL("/login?error=missing_params", url.origin)
-    );
+    redirect("/login?error=missing_params");
   }
 
   // Verify state
@@ -219,9 +215,7 @@ export async function GET(
   const storedState = cookieStore.get(`oauth_state_${provider}`)?.value;
 
   if (!storedState || storedState !== state) {
-    return NextResponse.redirect(
-      new URL("/login?error=invalid_state", url.origin)
-    );
+    redirect("/login?error=invalid_state");
   }
 
   // Clean up state cookie
@@ -243,26 +237,24 @@ export async function GET(
         userInfo = await getAppleUser(code);
         break;
       default:
-        return NextResponse.redirect(
-          new URL("/login?error=invalid_provider", url.origin)
-        );
+        redirect("/login?error=invalid_provider");
     }
 
     if (!userInfo.email) {
-      return NextResponse.redirect(
-        new URL("/login?error=no_email", url.origin)
-      );
+      redirect("/login?error=no_email");
     }
 
     // Find or create user and create session
     const userId = await findOrCreateUser(provider as OAuthProvider, userInfo);
     await createSession(userId);
 
-    return NextResponse.redirect(new URL("/", url.origin));
-  } catch (err) {
+    redirect("/");
+  } catch (err: unknown) {
+    // Re-throw Next.js internal errors (redirect, notFound use throw internally)
+    if (err && typeof err === "object" && "digest" in err) {
+      throw err;
+    }
     console.error(`OAuth callback error for ${provider}:`, err);
-    return NextResponse.redirect(
-      new URL("/login?error=oauth_failed", url.origin)
-    );
+    redirect("/login?error=oauth_failed");
   }
 }
