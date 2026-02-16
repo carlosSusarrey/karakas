@@ -1,13 +1,15 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { signUp } from "@/lib/auth";
 
 export async function signup(
   formData: FormData
-): Promise<{ error?: string; success?: boolean }> {
+): Promise<{ error: string }> {
   const username = formData.get("username") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const redirectUrl = (formData.get("redirectUrl") as string) || "/";
 
   if (!username || !email || !password) {
     return { error: "All fields are required" };
@@ -27,5 +29,5 @@ export async function signup(
     return { error: result.error };
   }
 
-  return { success: true };
+  redirect(redirectUrl);
 }

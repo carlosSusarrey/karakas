@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { login } from "./actions";
 import { AlertMessage } from "@/components/alert-message";
@@ -51,7 +50,6 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ initialError, redirectUrl }: LoginFormProps) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(initialError);
   const [loading, setLoading] = useState(false);
 
@@ -61,15 +59,14 @@ export function LoginForm({ initialError, redirectUrl }: LoginFormProps) {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    formData.set("redirectUrl", redirectUrl || "/");
     const result = await login(formData);
 
-    if (result.error) {
+    if (result?.error) {
       setError(result.error);
       setLoading(false);
-    } else {
-      router.push(redirectUrl || "/");
-      router.refresh();
     }
+    // On success, the server action calls redirect() — no client-side navigation needed
   }
 
   return (
