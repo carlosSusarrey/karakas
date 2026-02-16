@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { login } from "./actions";
 import { AlertMessage } from "@/components/alert-message";
@@ -46,10 +47,12 @@ function AppleIcon() {
 
 interface LoginFormProps {
   initialError: string | null;
+  registered?: boolean;
   redirectUrl?: string;
 }
 
-export function LoginForm({ initialError, redirectUrl }: LoginFormProps) {
+export function LoginForm({ initialError, registered, redirectUrl }: LoginFormProps) {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(initialError);
   const [loading, setLoading] = useState(false);
 
@@ -59,14 +62,15 @@ export function LoginForm({ initialError, redirectUrl }: LoginFormProps) {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    formData.set("redirectUrl", redirectUrl || "/");
     const result = await login(formData);
 
-    if (result?.error) {
+    if (result.error) {
       setError(result.error);
       setLoading(false);
+      return;
     }
-    // On success, the server action calls redirect() — no client-side navigation needed
+
+    router.push(redirectUrl || "/");
   }
 
   return (
@@ -79,6 +83,12 @@ export function LoginForm({ initialError, redirectUrl }: LoginFormProps) {
           <h1 className="text-2xl font-semibold mt-4">Welcome back</h1>
           <p className="text-zinc-400 mt-2">Log in to track your games</p>
         </div>
+
+        {registered && (
+          <AlertMessage variant="success" className="mb-4">
+            Account created successfully! Please log in.
+          </AlertMessage>
+        )}
 
         {error && (
           <AlertMessage variant="error" className="mb-4">
@@ -124,15 +134,15 @@ export function LoginForm({ initialError, redirectUrl }: LoginFormProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
-              htmlFor="email"
+              htmlFor="identifier"
               className="block text-sm font-medium text-zinc-300 mb-1"
             >
-              Email
+              Email or Username
             </label>
             <input
-              type="email"
-              id="email"
-              name="email"
+              type="text"
+              id="identifier"
+              name="identifier"
               required
               className="w-full px-4 py-2 bg-zinc-900 border border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               placeholder="you@example.com"

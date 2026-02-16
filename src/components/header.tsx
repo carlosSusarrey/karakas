@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
+import { logoutUser } from "@/app/logout/actions";
 
 type Props = {
   username?: string;
@@ -104,12 +105,14 @@ export function Header({ username, activeTab }: Props) {
               </div>
               <span className="text-zinc-500">|</span>
               <span className="text-zinc-300">{username}</span>
-              <Link
-                href="/logout"
-                className="text-zinc-400 hover:text-zinc-100 transition-colors"
-              >
-                Log out
-              </Link>
+              <form action={logoutUser} className="inline">
+                <button
+                  type="submit"
+                  className="text-zinc-400 hover:text-zinc-100 transition-colors"
+                >
+                  Log out
+                </button>
+              </form>
             </>
           ) : (
             <>

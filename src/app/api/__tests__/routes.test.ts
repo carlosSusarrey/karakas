@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Mock dependencies
 vi.mock('@/lib/auth', () => ({
   getCurrentUser: vi.fn(),
-  signOut: vi.fn(),
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -22,6 +21,10 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
+vi.mock('@/lib/session', () => ({
+  deleteSession: vi.fn(),
+}))
+
 vi.mock('@/lib/scryfall', () => ({
   autocompleteCards: vi.fn(),
   getCardByName: vi.fn(),
@@ -35,7 +38,7 @@ vi.mock('next/navigation', () => ({
   }),
 }))
 
-import { getCurrentUser, signOut } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { autocompleteCards, getCardByName, getCardImageUrlFromCard, canBeCommander } from '@/lib/scryfall'
 import { redirect } from 'next/navigation'
@@ -627,20 +630,15 @@ describe('API Routes', () => {
   })
 })
 
-describe('Logout Route', () => {
+describe('Logout Action', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('signs out and redirects to home', async () => {
-    vi.mocked(signOut).mockResolvedValue(undefined)
+  it('deletes session and redirects to home', async () => {
+    const { logoutUser } = await import('../../logout/actions')
 
-    // Import the logout route
-    const { GET } = await import('../../logout/route')
-
-    // Note: The logout route uses redirect() which throws, so we need to catch it
-    await expect(GET()).rejects.toThrow('REDIRECT:/')
-    expect(signOut).toHaveBeenCalled()
+    await expect(logoutUser()).rejects.toThrow('REDIRECT:/')
     expect(redirect).toHaveBeenCalledWith('/')
   })
 })

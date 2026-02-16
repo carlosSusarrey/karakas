@@ -1,33 +1,52 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { signUp } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { hashPassword } from "@/lib/auth";
 
 export async function signup(
   formData: FormData
-): Promise<{ error: string }> {
+): Promise<{ error?: string; success?: boolean }> {
   const username = formData.get("username") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const redirectUrl = (formData.get("redirectUrl") as string) || "/";
 
   if (!username || !email || !password) {
-    return { error: "All fields are required" };
+    return { error: "All fields are required." };
   }
 
   if (username.length < 3 || username.length > 20) {
-    return { error: "Username must be between 3 and 20 characters" };
+    return { error: "Username must be between 3 and 20 characters." };
+  }
+
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    return { error: "Username can only contain letters, numbers, and underscores." };
   }
 
   if (password.length < 8) {
-    return { error: "Password must be at least 8 characters" };
+    return { error: "Password must be at least 8 characters." };
   }
 
-  const result = await signUp(email, username, password);
-
-  if ("error" in result) {
-    return { error: result.error };
+  // Check for existing email
+  const existingEmail = await db.user.findUnique({ where: { email } });
+  if (existingEmail) {
+    return { error: "Email already in use." };
   }
 
-  redirect(redirectUrl);
+  // Check for existing username
+  const existingUsername = await db.user.findUnique({ where: { username } });
+  if (existingUsername) {
+    return { error: "Username already taken." };
+  }
+
+  const passwordHash = await hashPassword(password);
+
+  await db.user.create({
+    data: {
+      email,
+      username,
+      passwordHash,
+    },
+  });
+
+  return { success: true };
 }

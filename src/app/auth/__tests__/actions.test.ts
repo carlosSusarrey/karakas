@@ -2,17 +2,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock the dependencies
 vi.mock('@/lib/auth', () => ({
-  signIn: vi.fn(),
-  signUp: vi.fn(),
+  hashPassword: vi.fn((password: string) => Promise.resolve(`hashed_${password}`)),
+  verifyPassword: vi.fn((password: string, hash: string) => Promise.resolve(hash === `hashed_${password}`)),
   updatePassword: vi.fn(),
 }))
 
 vi.mock('@/lib/db', () => ({
   db: {
     user: {
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
+      create: vi.fn(),
     },
   },
+}))
+
+vi.mock('@/lib/session', () => ({
+  createSession: vi.fn(),
 }))
 
 vi.mock('@/lib/email', () => ({
@@ -24,14 +30,9 @@ vi.mock('@/lib/password-reset', () => ({
   consumePasswordResetToken: vi.fn(),
 }))
 
-vi.mock('next/navigation', () => ({
-  redirect: vi.fn((url: string) => {
-    throw new Error(`REDIRECT:${url}`)
-  }),
-}))
-
-import { signIn, signUp, updatePassword } from '@/lib/auth'
+import { verifyPassword, updatePassword } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { createSession } from '@/lib/session'
 import { sendPasswordResetEmail } from '@/lib/email'
 import { createPasswordResetToken, consumePasswordResetToken } from '@/lib/password-reset'
 import { login } from '../../login/actions'
@@ -54,50 +55,96 @@ describe('Auth Actions', () => {
   })
 
   describe('login', () => {
-    it('returns error when email is missing', async () => {
+    it('returns error when identifier is missing', async () => {
       const formData = createFormData({ password: 'password123' })
       const result = await login(formData)
 
-      expect(result).toEqual({ error: 'Email and password are required' })
+      expect(result).toEqual({ error: 'Email/username and password are required.' })
     })
 
     it('returns error when password is missing', async () => {
-      const formData = createFormData({ email: 'test@example.com' })
+      const formData = createFormData({ identifier: 'test@example.com' })
       const result = await login(formData)
 
-      expect(result).toEqual({ error: 'Email and password are required' })
+      expect(result).toEqual({ error: 'Email/username and password are required.' })
     })
 
-    it('returns error when both email and password are missing', async () => {
-      const formData = createFormData({})
-      const result = await login(formData)
-
-      expect(result).toEqual({ error: 'Email and password are required' })
-    })
-
-    it('returns error from signIn when credentials are invalid', async () => {
-      vi.mocked(signIn).mockResolvedValue({ error: 'Invalid email or password' })
+    it('returns error when user not found', async () => {
+      vi.mocked(db.user.findFirst).mockResolvedValue(null)
 
       const formData = createFormData({
-        email: 'test@example.com',
+        identifier: 'test@example.com',
         password: 'wrongpassword',
       })
       const result = await login(formData)
 
-      expect(result).toEqual({ error: 'Invalid email or password' })
-      expect(signIn).toHaveBeenCalledWith('test@example.com', 'wrongpassword')
+      expect(result).toEqual({ error: 'Invalid email/username or password.' })
     })
 
-    it('redirects when credentials are valid', async () => {
-      vi.mocked(signIn).mockResolvedValue({ user: { id: 'user-1', email: 'test@example.com', username: 'testuser', avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
-
-      const formData = createFormData({
+    it('returns error when password is incorrect', async () => {
+      vi.mocked(db.user.findFirst).mockResolvedValue({
+        id: 'user-1',
         email: 'test@example.com',
-        password: 'correctpassword',
+        username: 'testuser',
+        passwordHash: 'hashed_correctpassword',
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       })
 
-      await expect(login(formData)).rejects.toThrow('REDIRECT:/')
-      expect(signIn).toHaveBeenCalledWith('test@example.com', 'correctpassword')
+      const formData = createFormData({
+        identifier: 'test@example.com',
+        password: 'wrongpassword',
+      })
+      const result = await login(formData)
+
+      expect(result).toEqual({ error: 'Invalid email/username or password.' })
+    })
+
+    it('returns success and creates session when credentials are valid', async () => {
+      vi.mocked(db.user.findFirst).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+        passwordHash: 'hashed_correctpassword',
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      const formData = createFormData({
+        identifier: 'test@example.com',
+        password: 'correctpassword',
+      })
+      const result = await login(formData)
+
+      expect(result).toEqual({ success: true })
+      expect(createSession).toHaveBeenCalledWith('user-1')
+    })
+
+    it('supports login by username', async () => {
+      vi.mocked(db.user.findFirst).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+        passwordHash: 'hashed_mypassword',
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      const formData = createFormData({
+        identifier: 'testuser',
+        password: 'mypassword',
+      })
+      const result = await login(formData)
+
+      expect(result).toEqual({ success: true })
+      expect(db.user.findFirst).toHaveBeenCalledWith({
+        where: {
+          OR: [{ email: 'testuser' }, { username: 'testuser' }],
+        },
+      })
     })
   })
 
@@ -109,7 +156,7 @@ describe('Auth Actions', () => {
       })
       const result = await signup(formData)
 
-      expect(result).toEqual({ error: 'All fields are required' })
+      expect(result).toEqual({ error: 'All fields are required.' })
     })
 
     it('returns error when email is missing', async () => {
@@ -119,7 +166,7 @@ describe('Auth Actions', () => {
       })
       const result = await signup(formData)
 
-      expect(result).toEqual({ error: 'All fields are required' })
+      expect(result).toEqual({ error: 'All fields are required.' })
     })
 
     it('returns error when password is missing', async () => {
@@ -129,7 +176,7 @@ describe('Auth Actions', () => {
       })
       const result = await signup(formData)
 
-      expect(result).toEqual({ error: 'All fields are required' })
+      expect(result).toEqual({ error: 'All fields are required.' })
     })
 
     it('returns error when username is too short', async () => {
@@ -140,7 +187,7 @@ describe('Auth Actions', () => {
       })
       const result = await signup(formData)
 
-      expect(result).toEqual({ error: 'Username must be between 3 and 20 characters' })
+      expect(result).toEqual({ error: 'Username must be between 3 and 20 characters.' })
     })
 
     it('returns error when username is too long', async () => {
@@ -151,7 +198,18 @@ describe('Auth Actions', () => {
       })
       const result = await signup(formData)
 
-      expect(result).toEqual({ error: 'Username must be between 3 and 20 characters' })
+      expect(result).toEqual({ error: 'Username must be between 3 and 20 characters.' })
+    })
+
+    it('returns error when username has invalid characters', async () => {
+      const formData = createFormData({
+        username: 'test user!',
+        email: 'test@example.com',
+        password: 'password123',
+      })
+      const result = await signup(formData)
+
+      expect(result).toEqual({ error: 'Username can only contain letters, numbers, and underscores.' })
     })
 
     it('returns error when password is too short', async () => {
@@ -162,11 +220,19 @@ describe('Auth Actions', () => {
       })
       const result = await signup(formData)
 
-      expect(result).toEqual({ error: 'Password must be at least 8 characters' })
+      expect(result).toEqual({ error: 'Password must be at least 8 characters.' })
     })
 
-    it('returns error from signUp when email already exists', async () => {
-      vi.mocked(signUp).mockResolvedValue({ error: 'Email already in use' })
+    it('returns error when email already exists', async () => {
+      vi.mocked(db.user.findUnique).mockResolvedValueOnce({
+        id: 'existing-user',
+        email: 'existing@example.com',
+        username: 'existinguser',
+        passwordHash: 'hash',
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
 
       const formData = createFormData({
         username: 'testuser',
@@ -175,56 +241,60 @@ describe('Auth Actions', () => {
       })
       const result = await signup(formData)
 
-      expect(result).toEqual({ error: 'Email already in use' })
+      expect(result).toEqual({ error: 'Email already in use.' })
     })
 
-    it('redirects when signup is valid', async () => {
-      vi.mocked(signUp).mockResolvedValue({ user: { id: 'user-1', email: 'new@example.com', username: 'testuser', avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
+    it('returns error when username already exists', async () => {
+      vi.mocked(db.user.findUnique)
+        .mockResolvedValueOnce(null) // email check
+        .mockResolvedValueOnce({
+          id: 'existing-user',
+          email: 'other@example.com',
+          username: 'takenuser',
+          passwordHash: 'hash',
+          avatarUrl: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
 
       const formData = createFormData({
-        username: 'testuser',
+        username: 'takenuser',
         email: 'new@example.com',
         password: 'password123',
       })
+      const result = await signup(formData)
 
-      await expect(signup(formData)).rejects.toThrow('REDIRECT:/')
-      expect(signUp).toHaveBeenCalledWith('new@example.com', 'testuser', 'password123')
+      expect(result).toEqual({ error: 'Username already taken.' })
     })
 
-    it('accepts username at minimum length (3)', async () => {
-      vi.mocked(signUp).mockResolvedValue({ user: { id: 'user-1', email: 'test@example.com', username: 'abc', avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
+    it('creates user and returns success without auto-login', async () => {
+      vi.mocked(db.user.findUnique).mockResolvedValue(null)
+      vi.mocked(db.user.create).mockResolvedValue({
+        id: 'new-user-1',
+        email: 'new@example.com',
+        username: 'newuser',
+        passwordHash: 'hashed_password123',
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
 
       const formData = createFormData({
-        username: 'abc',
-        email: 'test@example.com',
+        username: 'newuser',
+        email: 'new@example.com',
         password: 'password123',
       })
+      const result = await signup(formData)
 
-      await expect(signup(formData)).rejects.toThrow('REDIRECT:/')
-    })
-
-    it('accepts username at maximum length (20)', async () => {
-      vi.mocked(signUp).mockResolvedValue({ user: { id: 'user-1', email: 'test@example.com', username: 'a'.repeat(20), avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
-
-      const formData = createFormData({
-        username: 'a'.repeat(20),
-        email: 'test@example.com',
-        password: 'password123',
+      expect(result).toEqual({ success: true })
+      expect(createSession).not.toHaveBeenCalled()
+      expect(db.user.create).toHaveBeenCalledWith({
+        data: {
+          email: 'new@example.com',
+          username: 'newuser',
+          passwordHash: 'hashed_password123',
+        },
       })
-
-      await expect(signup(formData)).rejects.toThrow('REDIRECT:/')
-    })
-
-    it('accepts password at minimum length (8)', async () => {
-      vi.mocked(signUp).mockResolvedValue({ user: { id: 'user-1', email: 'test@example.com', username: 'testuser', avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
-
-      const formData = createFormData({
-        username: 'testuser',
-        email: 'test@example.com',
-        password: '12345678',
-      })
-
-      await expect(signup(formData)).rejects.toThrow('REDIRECT:/')
     })
   })
 

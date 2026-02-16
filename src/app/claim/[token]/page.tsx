@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import { logoutUser } from "@/app/logout/actions";
 import { getClaimTokenInfo } from "@/app/playgroups/[id]/players/actions";
 import { ClaimForm } from "./claim-form";
 
@@ -112,12 +113,14 @@ export default async function ClaimPlayerPage({
           {user ? (
             <div className="flex items-center gap-4">
               <span className="text-zinc-300">{user.username}</span>
-              <Link
-                href="/logout"
-                className="text-zinc-400 hover:text-zinc-100 transition-colors"
-              >
-                Log out
-              </Link>
+              <form action={logoutUser} className="inline">
+                <button
+                  type="submit"
+                  className="text-zinc-400 hover:text-zinc-100 transition-colors"
+                >
+                  Log out
+                </button>
+              </form>
             </div>
           ) : (
             <div className="flex items-center gap-4">

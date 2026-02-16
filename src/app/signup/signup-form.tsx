@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signup } from "./actions";
 import { AlertMessage } from "@/components/alert-message";
@@ -49,7 +50,8 @@ interface SignUpFormProps {
   redirectUrl?: string;
 }
 
-export function SignUpForm({ initialError, redirectUrl }: SignUpFormProps) {
+export function SignUpForm({ initialError }: SignUpFormProps) {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(initialError);
   const [loading, setLoading] = useState(false);
 
@@ -59,14 +61,15 @@ export function SignUpForm({ initialError, redirectUrl }: SignUpFormProps) {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    formData.set("redirectUrl", redirectUrl || "/");
     const result = await signup(formData);
 
-    if (result?.error) {
+    if (result.error) {
       setError(result.error);
       setLoading(false);
+      return;
     }
-    // On success, the server action calls redirect() — no client-side navigation needed
+
+    router.push("/login?registered=true");
   }
 
   return (

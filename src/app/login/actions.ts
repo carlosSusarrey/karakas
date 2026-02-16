@@ -1,24 +1,35 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { signIn } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { verifyPassword } from "@/lib/auth";
+import { createSession } from "@/lib/session";
 
 export async function login(
   formData: FormData
-): Promise<{ error: string }> {
-  const email = formData.get("email") as string;
+): Promise<{ error?: string; success?: boolean }> {
+  const identifier = formData.get("identifier") as string;
   const password = formData.get("password") as string;
-  const redirectUrl = (formData.get("redirectUrl") as string) || "/";
 
-  if (!email || !password) {
-    return { error: "Email and password are required" };
+  if (!identifier || !password) {
+    return { error: "Email/username and password are required." };
   }
 
-  const result = await signIn(email, password);
+  const user = await db.user.findFirst({
+    where: {
+      OR: [{ email: identifier }, { username: identifier }],
+    },
+  });
 
-  if ("error" in result) {
-    return { error: result.error };
+  if (!user || !user.passwordHash) {
+    return { error: "Invalid email/username or password." };
   }
 
-  redirect(redirectUrl);
+  const isValid = await verifyPassword(password, user.passwordHash);
+
+  if (!isValid) {
+    return { error: "Invalid email/username or password." };
+  }
+
+  await createSession(user.id);
+  return { success: true };
 }

@@ -14,9 +14,9 @@ const OAUTH_ERRORS: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; redirect?: string }>;
+  searchParams: Promise<{ error?: string; redirect?: string; registered?: string }>;
 }) {
-  const { error, redirect } = await searchParams;
+  const { error, redirect, registered } = await searchParams;
   const initialError = error
     ? OAUTH_ERRORS[error] || "An error occurred. Please try again."
     : null;
@@ -29,7 +29,11 @@ export default async function LoginPage({
         </div>
       }
     >
-      <LoginForm initialError={initialError} redirectUrl={redirect} />
+      <LoginForm
+        initialError={initialError}
+        registered={registered === "true"}
+        redirectUrl={redirect}
+      />
     </Suspense>
   );
 }

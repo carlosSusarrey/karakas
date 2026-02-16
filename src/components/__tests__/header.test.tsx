@@ -16,6 +16,11 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+// Mock the logout action
+vi.mock('@/app/logout/actions', () => ({
+  logoutUser: vi.fn(),
+}))
+
 describe('Header Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -164,10 +169,11 @@ describe('Header Component', () => {
       expect(logo.closest('a')).toHaveAttribute('href', '/')
     })
 
-    it('has correct href for logout', () => {
+    it('renders logout as a submit button in a form', () => {
       render(<Header username="testuser" />)
       const logout = screen.getByText('Log out')
-      expect(logout.closest('a')).toHaveAttribute('href', '/logout')
+      expect(logout.tagName).toBe('BUTTON')
+      expect(logout).toHaveAttribute('type', 'submit')
     })
 
     it('has correct href for login when not logged in', () => {
