@@ -24,6 +24,12 @@ vi.mock('@/lib/password-reset', () => ({
   consumePasswordResetToken: vi.fn(),
 }))
 
+vi.mock('next/navigation', () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`REDIRECT:${url}`)
+  }),
+}))
+
 import { signIn, signUp, updatePassword } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { sendPasswordResetEmail } from '@/lib/email'
@@ -82,16 +88,15 @@ describe('Auth Actions', () => {
       expect(signIn).toHaveBeenCalledWith('test@example.com', 'wrongpassword')
     })
 
-    it('returns success when credentials are valid', async () => {
-      vi.mocked(signIn).mockResolvedValue({ success: true })
+    it('redirects when credentials are valid', async () => {
+      vi.mocked(signIn).mockResolvedValue({ user: { id: 'user-1', email: 'test@example.com', username: 'testuser', avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
 
       const formData = createFormData({
         email: 'test@example.com',
         password: 'correctpassword',
       })
-      const result = await login(formData)
 
-      expect(result).toEqual({ success: true })
+      await expect(login(formData)).rejects.toThrow('REDIRECT:/')
       expect(signIn).toHaveBeenCalledWith('test@example.com', 'correctpassword')
     })
   })
@@ -173,57 +178,53 @@ describe('Auth Actions', () => {
       expect(result).toEqual({ error: 'Email already in use' })
     })
 
-    it('returns success when signup is valid', async () => {
-      vi.mocked(signUp).mockResolvedValue({ success: true })
+    it('redirects when signup is valid', async () => {
+      vi.mocked(signUp).mockResolvedValue({ user: { id: 'user-1', email: 'new@example.com', username: 'testuser', avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
 
       const formData = createFormData({
         username: 'testuser',
         email: 'new@example.com',
         password: 'password123',
       })
-      const result = await signup(formData)
 
-      expect(result).toEqual({ success: true })
+      await expect(signup(formData)).rejects.toThrow('REDIRECT:/')
       expect(signUp).toHaveBeenCalledWith('new@example.com', 'testuser', 'password123')
     })
 
     it('accepts username at minimum length (3)', async () => {
-      vi.mocked(signUp).mockResolvedValue({ success: true })
+      vi.mocked(signUp).mockResolvedValue({ user: { id: 'user-1', email: 'test@example.com', username: 'abc', avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
 
       const formData = createFormData({
         username: 'abc',
         email: 'test@example.com',
         password: 'password123',
       })
-      const result = await signup(formData)
 
-      expect(result).toEqual({ success: true })
+      await expect(signup(formData)).rejects.toThrow('REDIRECT:/')
     })
 
     it('accepts username at maximum length (20)', async () => {
-      vi.mocked(signUp).mockResolvedValue({ success: true })
+      vi.mocked(signUp).mockResolvedValue({ user: { id: 'user-1', email: 'test@example.com', username: 'a'.repeat(20), avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
 
       const formData = createFormData({
         username: 'a'.repeat(20),
         email: 'test@example.com',
         password: 'password123',
       })
-      const result = await signup(formData)
 
-      expect(result).toEqual({ success: true })
+      await expect(signup(formData)).rejects.toThrow('REDIRECT:/')
     })
 
     it('accepts password at minimum length (8)', async () => {
-      vi.mocked(signUp).mockResolvedValue({ success: true })
+      vi.mocked(signUp).mockResolvedValue({ user: { id: 'user-1', email: 'test@example.com', username: 'testuser', avatarUrl: null, createdAt: new Date(), updatedAt: new Date() } })
 
       const formData = createFormData({
         username: 'testuser',
         email: 'test@example.com',
         password: '12345678',
       })
-      const result = await signup(formData)
 
-      expect(result).toEqual({ success: true })
+      await expect(signup(formData)).rejects.toThrow('REDIRECT:/')
     })
   })
 

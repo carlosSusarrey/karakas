@@ -65,19 +65,17 @@ describe('Game Actions', () => {
   })
 
   describe('createGame', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(
-        createGame({
-          format: 'commander',
-          players: [
-            { id: '1', type: 'guest', guestName: 'Player 1' },
-            { id: '2', type: 'guest', guestName: 'Player 2' },
-          ],
-        })
-      ).rejects.toThrow('REDIRECT:/login')
-      expect(redirect).toHaveBeenCalledWith('/login')
+      const result = await createGame({
+        format: 'commander',
+        players: [
+          { id: '1', type: 'guest', guestName: 'Player 1' },
+          { id: '2', type: 'guest', guestName: 'Player 2' },
+        ],
+      })
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('returns error when format is missing', async () => {
@@ -425,17 +423,16 @@ describe('Game Actions', () => {
   })
 
   describe('updateGame', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(
-        updateGame('game-1', {
-          totalTurns: 10,
-          notes: null,
-          playedAt: new Date(),
-          players: [],
-        })
-      ).rejects.toThrow('REDIRECT:/login')
+      const result = await updateGame('game-1', {
+        totalTurns: 10,
+        notes: null,
+        playedAt: new Date(),
+        players: [],
+      })
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('returns error when game not found', async () => {
@@ -690,10 +687,11 @@ describe('Game Actions', () => {
   })
 
   describe('deleteGame', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(deleteGame('game-1')).rejects.toThrow('REDIRECT:/login')
+      const result = await deleteGame('game-1')
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('returns error when game not found', async () => {
@@ -763,10 +761,11 @@ describe('Game Actions', () => {
   })
 
   describe('updateTurnCount', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(updateTurnCount('game-1', 10)).rejects.toThrow('REDIRECT:/login')
+      const result = await updateTurnCount('game-1', 10)
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('successfully updates turn count', async () => {
@@ -803,10 +802,11 @@ describe('Game Actions', () => {
   })
 
   describe('eliminatePlayer', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(eliminatePlayer('game-1', 'player-1', 5, true)).rejects.toThrow('REDIRECT:/login')
+      const result = await eliminatePlayer('game-1', 'player-1', 5, true)
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('successfully eliminates player', async () => {
@@ -832,10 +832,11 @@ describe('Game Actions', () => {
   })
 
   describe('reinstatePlayer', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(reinstatePlayer('game-1', 'player-1')).rejects.toThrow('REDIRECT:/login')
+      const result = await reinstatePlayer('game-1', 'player-1')
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('successfully reinstates player', async () => {
@@ -861,12 +862,11 @@ describe('Game Actions', () => {
   })
 
   describe('addPowerPlay', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(
-        addPowerPlay('game-1', 'player-1', 'user-1', 5, 'combo', 'Infinite combo')
-      ).rejects.toThrow('REDIRECT:/login')
+      const result = await addPowerPlay('game-1', 'player-1', 'user-1', 5, 'combo', 'Infinite combo')
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('successfully adds power play', async () => {
@@ -943,10 +943,11 @@ describe('Game Actions', () => {
   })
 
   describe('removePowerPlay', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(removePowerPlay('game-1', 'pp-1')).rejects.toThrow('REDIRECT:/login')
+      const result = await removePowerPlay('game-1', 'pp-1')
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('successfully removes power play', async () => {
@@ -966,10 +967,11 @@ describe('Game Actions', () => {
   })
 
   describe('endGame', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(endGame('game-1', 'winner-1', false)).rejects.toThrow('REDIRECT:/login')
+      const result = await endGame('game-1', 'winner-1', false)
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('returns error when game not found', async () => {

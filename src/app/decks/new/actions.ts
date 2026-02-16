@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MTG_FORMATS, type MtgFormat } from "@/types/mtg";
@@ -10,7 +9,7 @@ export async function createDeck(
 ): Promise<{ success: true; deckId: string } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   const name = formData.get("name") as string;

@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -26,7 +25,7 @@ export async function updateGame(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   // Get the game and verify ownership
@@ -109,7 +108,7 @@ export async function deleteGame(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   // Get the game and verify ownership

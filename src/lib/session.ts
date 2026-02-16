@@ -34,20 +34,26 @@ export async function getSession() {
     return null;
   }
 
-  const session = await db.session.findUnique({
-    where: { id: sessionId },
-    include: { user: true },
-  });
+  try {
+    const session = await db.session.findUnique({
+      where: { id: sessionId },
+      include: { user: true },
+    });
 
-  if (!session || session.expiresAt < new Date()) {
-    // Session expired or not found
-    if (session) {
-      await db.session.delete({ where: { id: sessionId } });
+    if (!session || session.expiresAt < new Date()) {
+      // Session expired or not found
+      if (session) {
+        await db.session.delete({ where: { id: sessionId } }).catch(() => {});
+      }
+      return null;
     }
-    return null;
-  }
 
-  return session;
+    return session;
+  } catch (error) {
+    // Log but re-throw so callers can distinguish "no session" from "DB error"
+    console.error("Failed to look up session:", error);
+    throw error;
+  }
 }
 
 export async function deleteSession() {

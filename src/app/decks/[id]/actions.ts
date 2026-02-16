@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -11,7 +10,7 @@ export async function deleteDeck(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   const deck = await db.deck.findUnique({
@@ -39,7 +38,7 @@ export async function toggleArchiveDeck(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   const deck = await db.deck.findUnique({
@@ -70,7 +69,7 @@ export async function updateDeck(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   const deck = await db.deck.findUnique({

@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { MtgFormat } from "@/types/mtg";
@@ -71,7 +70,7 @@ export async function createGame(
 ): Promise<{ success: true; gameId: string } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   // Validate input

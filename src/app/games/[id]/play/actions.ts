@@ -42,7 +42,7 @@ export async function updateTurnCount(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   try {
@@ -67,7 +67,7 @@ export async function eliminatePlayer(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   try {
@@ -93,7 +93,7 @@ export async function reinstatePlayer(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   try {
@@ -124,7 +124,7 @@ export async function addPowerPlay(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   try {
@@ -154,7 +154,7 @@ export async function removePowerPlay(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   try {
@@ -177,7 +177,7 @@ export async function endGame(
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    return { error: "Not authenticated" };
   }
 
   try {

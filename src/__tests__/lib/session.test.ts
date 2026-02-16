@@ -111,6 +111,7 @@ describe('Session Library', () => {
           updatedAt: new Date(),
         },
       })
+      vi.mocked(db.session.delete).mockResolvedValue({} as never)
 
       const session = await getSession()
 

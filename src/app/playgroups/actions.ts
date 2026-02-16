@@ -118,11 +118,11 @@ export async function deletePlaygroup(playgroupId: string) {
     await db.playgroup.delete({
       where: { id: playgroupId },
     });
-
-    redirect("/playgroups");
   } catch {
     return { error: "Failed to delete playgroup" };
   }
+
+  redirect("/playgroups");
 }
 
 export async function leavePlaygroup(playgroupId: string) {
@@ -154,11 +154,11 @@ export async function leavePlaygroup(playgroupId: string) {
         },
       },
     });
-
-    redirect("/playgroups");
   } catch {
     return { error: "Failed to leave playgroup" };
   }
+
+  redirect("/playgroups");
 }
 
 export async function inviteMember(playgroupId: string, email: string, role: string = "member") {

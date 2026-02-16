@@ -49,13 +49,13 @@ describe('Deck Actions', () => {
   })
 
   describe('createDeck', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
       const formData = createFormData({ name: 'Test Deck', format: 'commander' })
 
-      await expect(createDeck(formData)).rejects.toThrow('REDIRECT:/login')
-      expect(redirect).toHaveBeenCalledWith('/login')
+      const result = await createDeck(formData)
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('returns error when name is empty', async () => {
@@ -336,11 +336,11 @@ describe('Deck Actions', () => {
   })
 
   describe('deleteDeck', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(deleteDeck('deck-1')).rejects.toThrow('REDIRECT:/login')
-      expect(redirect).toHaveBeenCalledWith('/login')
+      const result = await deleteDeck('deck-1')
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('returns error when deck not found', async () => {
@@ -454,11 +454,11 @@ describe('Deck Actions', () => {
   })
 
   describe('toggleArchiveDeck', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
-      await expect(toggleArchiveDeck('deck-1')).rejects.toThrow('REDIRECT:/login')
-      expect(redirect).toHaveBeenCalledWith('/login')
+      const result = await toggleArchiveDeck('deck-1')
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('returns error when deck not found', async () => {
@@ -619,13 +619,13 @@ describe('Deck Actions', () => {
   })
 
   describe('updateDeck', () => {
-    it('redirects to login when not authenticated', async () => {
+    it('returns error when not authenticated', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue(null)
 
       const formData = createFormData({ name: 'Updated Deck', format: 'modern' })
 
-      await expect(updateDeck('deck-1', formData)).rejects.toThrow('REDIRECT:/login')
-      expect(redirect).toHaveBeenCalledWith('/login')
+      const result = await updateDeck('deck-1', formData)
+      expect(result).toEqual({ error: 'Not authenticated' })
     })
 
     it('returns error when deck not found', async () => {
