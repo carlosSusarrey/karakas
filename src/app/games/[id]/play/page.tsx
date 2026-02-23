@@ -62,5 +62,5 @@ export default async function PlayGamePage({
     redirect(`/games/${id}`);
   }
 
-  return <GameTracker game={game} />;
+  return <GameTracker game={game} username={user.username} />;
 }

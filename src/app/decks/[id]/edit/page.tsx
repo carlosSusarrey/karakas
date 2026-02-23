@@ -37,7 +37,7 @@ export default async function EditDeckPage({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header activeTab="decks" />
+      <Header username={user.username} activeTab="decks" />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-8">

@@ -42,7 +42,7 @@ type GameWithRelations = Game & {
   powerPlays: (PowerPlay & { gamePlayer: PowerPlayGamePlayer })[];
 };
 
-export function GameTracker({ game }: { game: GameWithRelations }) {
+export function GameTracker({ game, username }: { game: GameWithRelations; username?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [turns, setTurns] = useState(game.totalTurns || 1);
@@ -135,7 +135,7 @@ export function GameTracker({ game }: { game: GameWithRelations }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950">
-      <Header activeTab="games" />
+      <Header username={username} activeTab="games" />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-6">

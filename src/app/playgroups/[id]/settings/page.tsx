@@ -46,7 +46,7 @@ export default async function PlaygroupSettingsPage({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header activeTab="playgroups" />
+      <Header username={user.username} activeTab="playgroups" />
 
       {/* Main Content */}
       <main className="flex-1 px-6 py-8">
