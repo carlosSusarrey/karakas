@@ -43,6 +43,7 @@ export default async function PlaygroupDashboardPage({
           players: {
             include: {
               deck: true,
+              user: { select: { username: true } },
               playgroupPlayer: true,
             },
           },
@@ -173,6 +174,9 @@ export default async function PlaygroupDashboardPage({
   }
 
   function getPlayerName(player: GamePlayerWithRelations) {
+    if (player.user) {
+      return player.user.username;
+    }
     if (player.playgroupPlayer) {
       return player.playgroupPlayer.name;
     }
