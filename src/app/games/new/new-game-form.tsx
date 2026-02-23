@@ -9,6 +9,7 @@ import {
   getPlaygroupData,
   getPlaygroupDecks,
   getPlaygroupPlayerDecks,
+  saveNewDeckFromGame,
   type PlayerSetup,
   type PlaygroupData,
   type PlaygroupDeckData,
@@ -40,7 +41,24 @@ type PlayerInput = {
   commanderUsed1: string;
   commanderUsed2: string;
   bracketUsed: string;
+  showAllDecks: boolean;
+  saveAsNewDeck: boolean;
 };
+
+function createEmptyPlayer(type: PlayerInput["type"]): PlayerInput {
+  return {
+    id: generateId(),
+    type,
+    guestName: "",
+    deckId: "",
+    playgroupPlayerDeckId: "",
+    commanderUsed1: "",
+    commanderUsed2: "",
+    bracketUsed: "",
+    showAllDecks: false,
+    saveAsNewDeck: false,
+  };
+}
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
@@ -79,8 +97,8 @@ function NewGameFormInner({ username }: { username: string }) {
           }
           // Initialize with two empty player slots
           setPlayers([
-            { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
-            { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" },
+            createEmptyPlayer("playgroup_member"),
+            createEmptyPlayer("playgroup_member"),
           ]);
         } else {
           // Playgroup not found or user not a member
@@ -121,10 +139,7 @@ function NewGameFormInner({ username }: { username: string }) {
   }, [format, playgroupId, playgroupData, isLoading]);
 
   function addPlayer() {
-    const newPlayer: PlayerInput = playgroupId
-      ? { id: generateId(), type: "playgroup_member", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" }
-      : { id: generateId(), type: "guest", guestName: "", deckId: "", playgroupPlayerDeckId: "", commanderUsed1: "", commanderUsed2: "", bracketUsed: "" };
-    setPlayers([...players, newPlayer]);
+    setPlayers([...players, createEmptyPlayer(playgroupId ? "playgroup_member" : "guest")]);
   }
 
   function removePlayer(id: string) {
@@ -139,8 +154,18 @@ function NewGameFormInner({ username }: { username: string }) {
   }
 
   function handlePlayerSelect(playerId: string, value: string) {
+    const resetFields = {
+      deckId: "",
+      playgroupPlayerDeckId: "",
+      commanderUsed1: "",
+      commanderUsed2: "",
+      bracketUsed: "",
+      showAllDecks: false,
+      saveAsNewDeck: false,
+    };
+
     if (!value) {
-      updatePlayer(playerId, { type: "playgroup_member", userId: undefined, playgroupPlayerId: undefined, guestName: "" });
+      updatePlayer(playerId, { type: "playgroup_member", userId: undefined, playgroupPlayerId: undefined, guestName: "", ...resetFields });
       return;
     }
 
@@ -152,6 +177,7 @@ function NewGameFormInner({ username }: { username: string }) {
         userId,
         playgroupPlayerId: undefined,
         guestName: member?.username || "",
+        ...resetFields,
       });
     } else if (value.startsWith("player:")) {
       const playgroupPlayerId = value.replace("player:", "");
@@ -161,6 +187,7 @@ function NewGameFormInner({ username }: { username: string }) {
         playgroupPlayerId,
         userId: undefined,
         guestName: player?.name || "",
+        ...resetFields,
       });
     }
   }
@@ -175,7 +202,44 @@ function NewGameFormInner({ username }: { username: string }) {
     return "";
   }
 
+  function getPlayerOwnDecks(player: PlayerInput) {
+    if (player.type === "playgroup_member" && player.userId) {
+      return {
+        memberDecks: playgroupDecks.filter((d) => d.userId === player.userId),
+        playerDecks: [] as PlaygroupPlayerDeckData[],
+      };
+    }
+    if (player.type === "playgroup_player" && player.playgroupPlayerId) {
+      return {
+        memberDecks: [] as PlaygroupDeckData[],
+        playerDecks: playgroupPlayerDecks.filter((d) => d.playgroupPlayerId === player.playgroupPlayerId),
+      };
+    }
+    return { memberDecks: [] as PlaygroupDeckData[], playerDecks: [] as PlaygroupPlayerDeckData[] };
+  }
+
+  function getOtherDecks(player: PlayerInput) {
+    if (player.type === "playgroup_member" && player.userId) {
+      return {
+        memberDecks: playgroupDecks.filter((d) => d.userId !== player.userId),
+        playerDecks: playgroupPlayerDecks,
+      };
+    }
+    if (player.type === "playgroup_player" && player.playgroupPlayerId) {
+      return {
+        memberDecks: playgroupDecks,
+        playerDecks: playgroupPlayerDecks.filter((d) => d.playgroupPlayerId !== player.playgroupPlayerId),
+      };
+    }
+    return { memberDecks: playgroupDecks, playerDecks: playgroupPlayerDecks };
+  }
+
   function handleDeckSelect(playerId: string, value: string) {
+    if (value === "__load_more__") {
+      updatePlayer(playerId, { showAllDecks: true });
+      return;
+    }
+
     if (!value) {
       updatePlayer(playerId, {
         deckId: "",
@@ -183,6 +247,7 @@ function NewGameFormInner({ username }: { username: string }) {
         commanderUsed1: "",
         commanderUsed2: "",
         bracketUsed: "",
+        saveAsNewDeck: false,
       });
       return;
     }
@@ -239,7 +304,36 @@ function NewGameFormInner({ username }: { username: string }) {
     }
 
     startTransition(async () => {
-      const playerSetups: PlayerSetup[] = players.map((p) => ({
+      // Save any new decks that the user requested
+      const updatedPlayers = [...players];
+      for (let i = 0; i < updatedPlayers.length; i++) {
+        const p = updatedPlayers[i];
+        if (p.saveAsNewDeck && p.commanderUsed1 && playgroupId && !p.deckId && !p.playgroupPlayerDeckId) {
+          const saveResult = await saveNewDeckFromGame({
+            playgroupId,
+            playerType: p.type as "playgroup_member" | "playgroup_player",
+            userId: p.userId,
+            playgroupPlayerId: p.playgroupPlayerId,
+            format,
+            commander1: p.commanderUsed1,
+            commander2: p.commanderUsed2 || undefined,
+            bracket: p.bracketUsed ? parseInt(p.bracketUsed) : undefined,
+          });
+
+          if ("error" in saveResult) {
+            setError(`Failed to save deck for player ${i + 1}: ${saveResult.error}`);
+            return;
+          }
+
+          if (saveResult.deckType === "deck") {
+            updatedPlayers[i] = { ...p, deckId: saveResult.deckId };
+          } else {
+            updatedPlayers[i] = { ...p, playgroupPlayerDeckId: saveResult.deckId };
+          }
+        }
+      }
+
+      const playerSetups: PlayerSetup[] = updatedPlayers.map((p) => ({
         id: p.id,
         type: p.type,
         userId: p.userId,
@@ -409,28 +503,71 @@ function NewGameFormInner({ username }: { username: string }) {
                             <option value="">No deck selected</option>
                             {playgroupId ? (
                               <>
-                                {playgroupDecks.length > 0 && (
-                                  <optgroup label="Member Decks">
-                                    {playgroupDecks.map((deck) => (
-                                      <option key={deck.id} value={deck.id}>
-                                        {deck.name}
-                                        {deck.commander1 && ` - ${deck.commander1}`}
-                                        {` (${deck.createdBy.username})`}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                )}
-                                {playgroupPlayerDecks.length > 0 && (
-                                  <optgroup label="Player Decks">
-                                    {playgroupPlayerDecks.map((deck) => (
-                                      <option key={deck.id} value={`player_deck:${deck.id}`}>
-                                        {deck.name}
-                                        {deck.commander1 && ` - ${deck.commander1}`}
-                                        {` (${deck.playerName})`}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                )}
+                                {(() => {
+                                  const own = getPlayerOwnDecks(player);
+                                  const hasOwn = own.memberDecks.length > 0 || own.playerDecks.length > 0;
+                                  const other = getOtherDecks(player);
+                                  const hasOther = other.memberDecks.length > 0 || other.playerDecks.length > 0;
+
+                                  return (
+                                    <>
+                                      {own.memberDecks.length > 0 && (
+                                        <optgroup label="Your Decks">
+                                          {own.memberDecks.map((deck) => (
+                                            <option key={deck.id} value={deck.id}>
+                                              {deck.name}
+                                              {deck.commander1 && ` - ${deck.commander1}`}
+                                            </option>
+                                          ))}
+                                        </optgroup>
+                                      )}
+                                      {own.playerDecks.length > 0 && (
+                                        <optgroup label="Your Decks">
+                                          {own.playerDecks.map((deck) => (
+                                            <option key={deck.id} value={`player_deck:${deck.id}`}>
+                                              {deck.name}
+                                              {deck.commander1 && ` - ${deck.commander1}`}
+                                            </option>
+                                          ))}
+                                        </optgroup>
+                                      )}
+                                      {hasOther && !player.showAllDecks && (
+                                        <option value="__load_more__">
+                                          Load more decks...
+                                        </option>
+                                      )}
+                                      {player.showAllDecks && (
+                                        <>
+                                          {other.memberDecks.length > 0 && (
+                                            <optgroup label="Other Member Decks">
+                                              {other.memberDecks.map((deck) => (
+                                                <option key={deck.id} value={deck.id}>
+                                                  {deck.name}
+                                                  {deck.commander1 && ` - ${deck.commander1}`}
+                                                  {` (${deck.createdBy.username})`}
+                                                </option>
+                                              ))}
+                                            </optgroup>
+                                          )}
+                                          {other.playerDecks.length > 0 && (
+                                            <optgroup label="Other Player Decks">
+                                              {other.playerDecks.map((deck) => (
+                                                <option key={deck.id} value={`player_deck:${deck.id}`}>
+                                                  {deck.name}
+                                                  {deck.commander1 && ` - ${deck.commander1}`}
+                                                  {` (${deck.playerName})`}
+                                                </option>
+                                              ))}
+                                            </optgroup>
+                                          )}
+                                        </>
+                                      )}
+                                      {!hasOwn && !hasOther && (
+                                        <option value="" disabled>No decks available</option>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </>
                             ) : (
                               userDecks.map((deck) => (
@@ -507,6 +644,22 @@ function NewGameFormInner({ username }: { username: string }) {
                             ))}
                           </select>
                         </div>
+                      )}
+
+                      {/* Save as new deck */}
+                      {showCommander && !player.deckId && !player.playgroupPlayerDeckId &&
+                        player.commanderUsed1 && (player.userId || player.playgroupPlayerId) && (
+                        <label className="flex items-center gap-2 text-sm text-zinc-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={player.saveAsNewDeck}
+                            onChange={(e) =>
+                              updatePlayer(player.id, { saveAsNewDeck: e.target.checked })
+                            }
+                            className="rounded border-zinc-600 bg-zinc-800 text-amber-500 focus:ring-amber-500"
+                          />
+                          Save as new deck for this player
+                        </label>
                       )}
                     </div>
                   </div>

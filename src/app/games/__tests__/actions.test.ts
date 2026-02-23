@@ -22,15 +22,21 @@ vi.mock('@/lib/db', () => ({
     },
     playgroupMember: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
     deck: {
       findMany: vi.fn(),
+      create: vi.fn(),
     },
     playgroup: {
       findUnique: vi.fn(),
     },
     playgroupPlayer: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    playgroupPlayerDeck: {
+      create: vi.fn(),
     },
   },
 }))
@@ -48,7 +54,7 @@ vi.mock('next/cache', () => ({
 import { getCurrentUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { redirect } from 'next/navigation'
-import { createGame, getUserDecks, getPlaygroupData } from '../new/actions'
+import { createGame, getUserDecks, getPlaygroupData, getPlaygroupDecks, getPlaygroupPlayerDecks, saveNewDeckFromGame } from '../new/actions'
 import { updateGame, deleteGame } from '../[id]/edit/actions'
 import {
   updateTurnCount,
@@ -1057,6 +1063,591 @@ describe('Game Actions', () => {
       expect(db.gamePlayer.update).toHaveBeenCalledWith({
         where: { id: 'p2' },
         data: { placement: 1, isWinner: false },
+      })
+    })
+  })
+
+  describe('getPlaygroupDecks', () => {
+    it('returns empty array when not authenticated', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue(null)
+
+      const result = await getPlaygroupDecks('pg-1')
+
+      expect(result).toEqual([])
+    })
+
+    it('returns empty array when user is not a member', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findMany).mockResolvedValue([
+        { userId: 'other-user', playgroupId: 'pg-1', id: 'm1', role: 'member', joinedAt: new Date(), invitedById: null },
+      ])
+
+      const result = await getPlaygroupDecks('pg-1')
+
+      expect(result).toEqual([])
+    })
+
+    it('returns decks with userId field', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findMany).mockResolvedValue([
+        { userId: 'user-1', playgroupId: 'pg-1', id: 'm1', role: 'member', joinedAt: new Date(), invitedById: null },
+        { userId: 'user-2', playgroupId: 'pg-1', id: 'm2', role: 'member', joinedAt: new Date(), invitedById: null },
+      ])
+
+      vi.mocked(db.deck.findMany).mockResolvedValue([
+        {
+          id: 'deck-1', userId: 'user-1', name: 'Atraxa Deck', format: 'commander',
+          commander1: 'Atraxa', commander2: null, bracket: 3, decklistUrl: null,
+          isActive: true, playgroupId: 'pg-1', createdAt: new Date(), updatedAt: new Date(),
+          user: { username: 'testuser' },
+        },
+        {
+          id: 'deck-2', userId: 'user-2', name: 'Thrasios Deck', format: 'commander',
+          commander1: 'Thrasios', commander2: null, bracket: 4, decklistUrl: null,
+          isActive: true, playgroupId: 'pg-1', createdAt: new Date(), updatedAt: new Date(),
+          user: { username: 'otheruser' },
+        },
+      ] as never)
+
+      const result = await getPlaygroupDecks('pg-1')
+
+      expect(result).toHaveLength(2)
+      expect(result[0]).toHaveProperty('userId', 'user-1')
+      expect(result[1]).toHaveProperty('userId', 'user-2')
+      expect(result[0]).toHaveProperty('createdBy', { username: 'testuser' })
+    })
+
+    it('filters decks by format', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findMany).mockResolvedValue([
+        { userId: 'user-1', playgroupId: 'pg-1', id: 'm1', role: 'member', joinedAt: new Date(), invitedById: null },
+      ])
+
+      vi.mocked(db.deck.findMany).mockResolvedValue([])
+
+      await getPlaygroupDecks('pg-1', 'modern')
+
+      expect(db.deck.findMany).toHaveBeenCalledWith({
+        where: {
+          userId: { in: ['user-1'] },
+          isActive: true,
+          format: 'modern',
+        },
+        include: { user: { select: { username: true } } },
+        orderBy: { name: 'asc' },
+      })
+    })
+  })
+
+  describe('getPlaygroupPlayerDecks', () => {
+    it('returns empty array when not authenticated', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue(null)
+
+      const result = await getPlaygroupPlayerDecks('pg-1')
+
+      expect(result).toEqual([])
+    })
+
+    it('returns empty array when user is not a member', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue(null)
+
+      const result = await getPlaygroupPlayerDecks('pg-1')
+
+      expect(result).toEqual([])
+    })
+
+    it('returns player decks with playgroupPlayerId field', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.playgroupPlayer.findMany).mockResolvedValue([
+        {
+          id: 'player-1', playgroupId: 'pg-1', name: 'Bob',
+          email: null, linkedUserId: null, createdAt: new Date(),
+          decks: [
+            {
+              id: 'pdeck-1', playgroupPlayerId: 'player-1', name: 'Bob Commander',
+              format: 'commander', commander1: 'Muldrotha', commander2: null,
+              bracket: 2, decklistUrl: null, linkedDeckId: null,
+              isActive: true, createdAt: new Date(), updatedAt: new Date(),
+            },
+          ],
+        },
+      ] as never)
+
+      const result = await getPlaygroupPlayerDecks('pg-1')
+
+      expect(result).toHaveLength(1)
+      expect(result[0]).toHaveProperty('playgroupPlayerId', 'player-1')
+      expect(result[0]).toHaveProperty('playerName', 'Bob')
+      expect(result[0]).toHaveProperty('name', 'Bob Commander')
+    })
+  })
+
+  describe('saveNewDeckFromGame', () => {
+    it('returns error when not authenticated', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue(null)
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ error: 'Not authenticated' })
+    })
+
+    it('returns error when user is not a playgroup member', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue(null)
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ error: 'You are not a member of this playgroup' })
+    })
+
+    it('returns error when commander1 is empty', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: '',
+      })
+
+      expect(result).toEqual({ error: 'Commander name is required to save a deck' })
+    })
+
+    it('returns error when commander1 is whitespace only', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: '   ',
+      })
+
+      expect(result).toEqual({ error: 'Commander name is required to save a deck' })
+    })
+
+    it('creates a Deck for playgroup_member', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.deck.create).mockResolvedValue({
+        id: 'deck-new', userId: 'user-1', playgroupId: 'pg-1',
+        name: "Atraxa, Praetors' Voice", format: 'commander',
+        commander1: "Atraxa, Praetors' Voice", commander2: null,
+        bracket: 3, decklistUrl: null, isActive: true,
+        createdAt: new Date(), updatedAt: new Date(),
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: "Atraxa, Praetors' Voice",
+        bracket: 3,
+      })
+
+      expect(result).toEqual({ success: true, deckId: 'deck-new', deckType: 'deck' })
+      expect(db.deck.create).toHaveBeenCalledWith({
+        data: {
+          userId: 'user-1',
+          playgroupId: 'pg-1',
+          name: "Atraxa, Praetors' Voice",
+          format: 'commander',
+          commander1: "Atraxa, Praetors' Voice",
+          commander2: null,
+          bracket: 3,
+        },
+      })
+    })
+
+    it('creates a Deck with partner commander', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.deck.create).mockResolvedValue({
+        id: 'deck-new', userId: 'user-1', playgroupId: 'pg-1',
+        name: 'Thrasios, Triton Hero', format: 'commander',
+        commander1: 'Thrasios, Triton Hero', commander2: 'Tymna the Weaver',
+        bracket: 4, decklistUrl: null, isActive: true,
+        createdAt: new Date(), updatedAt: new Date(),
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: 'Thrasios, Triton Hero',
+        commander2: 'Tymna the Weaver',
+        bracket: 4,
+      })
+
+      expect(result).toEqual({ success: true, deckId: 'deck-new', deckType: 'deck' })
+      expect(db.deck.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          commander1: 'Thrasios, Triton Hero',
+          commander2: 'Tymna the Weaver',
+          bracket: 4,
+        }),
+      })
+    })
+
+    it('returns error when member userId is missing', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ error: 'User ID is required for member decks' })
+    })
+
+    it('creates a PlaygroupPlayerDeck for playgroup_player', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.playgroupPlayer.findUnique).mockResolvedValue({
+        id: 'player-1', playgroupId: 'pg-1', name: 'Bob',
+        email: null, linkedUserId: null, createdAt: new Date(),
+      })
+
+      vi.mocked(db.playgroupPlayerDeck.create).mockResolvedValue({
+        id: 'pdeck-new', playgroupPlayerId: 'player-1',
+        name: 'Muldrotha, the Gravetide', format: 'commander',
+        commander1: 'Muldrotha, the Gravetide', commander2: null,
+        bracket: 2, decklistUrl: null, linkedDeckId: null,
+        isActive: true, createdAt: new Date(), updatedAt: new Date(),
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_player',
+        playgroupPlayerId: 'player-1',
+        format: 'commander',
+        commander1: 'Muldrotha, the Gravetide',
+        bracket: 2,
+      })
+
+      expect(result).toEqual({ success: true, deckId: 'pdeck-new', deckType: 'playgroupPlayerDeck' })
+      expect(db.playgroupPlayerDeck.create).toHaveBeenCalledWith({
+        data: {
+          playgroupPlayerId: 'player-1',
+          name: 'Muldrotha, the Gravetide',
+          format: 'commander',
+          commander1: 'Muldrotha, the Gravetide',
+          commander2: null,
+          bracket: 2,
+        },
+      })
+    })
+
+    it('returns error when playgroupPlayerId is missing', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_player',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ error: 'Player ID is required for player decks' })
+    })
+
+    it('returns error when playgroup player not found in playgroup', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.playgroupPlayer.findUnique).mockResolvedValue({
+        id: 'player-1', playgroupId: 'pg-OTHER', name: 'Bob',
+        email: null, linkedUserId: null, createdAt: new Date(),
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_player',
+        playgroupPlayerId: 'player-1',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ error: 'Player not found in this playgroup' })
+    })
+
+    it('returns error when playgroup player does not exist', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.playgroupPlayer.findUnique).mockResolvedValue(null)
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_player',
+        playgroupPlayerId: 'nonexistent',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ error: 'Player not found in this playgroup' })
+    })
+
+    it('handles db error gracefully for member deck creation', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.deck.create).mockRejectedValue(new Error('DB error'))
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ error: 'Failed to save deck. Please try again.' })
+    })
+
+    it('handles db error gracefully for player deck creation', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.playgroupPlayer.findUnique).mockResolvedValue({
+        id: 'player-1', playgroupId: 'pg-1', name: 'Bob',
+        email: null, linkedUserId: null, createdAt: new Date(),
+      })
+
+      vi.mocked(db.playgroupPlayerDeck.create).mockRejectedValue(new Error('DB error'))
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_player',
+        playgroupPlayerId: 'player-1',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ error: 'Failed to save deck. Please try again.' })
+    })
+
+    it('trims commander names', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.deck.create).mockResolvedValue({
+        id: 'deck-new', userId: 'user-1', playgroupId: 'pg-1',
+        name: 'Atraxa', format: 'commander',
+        commander1: 'Atraxa', commander2: 'Tymna',
+        bracket: null, decklistUrl: null, isActive: true,
+        createdAt: new Date(), updatedAt: new Date(),
+      })
+
+      await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: '  Atraxa  ',
+        commander2: '  Tymna  ',
+      })
+
+      expect(db.deck.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          name: 'Atraxa',
+          commander1: 'Atraxa',
+          commander2: 'Tymna',
+        }),
+      })
+    })
+
+    it('creates deck without bracket when not provided', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1', playgroupId: 'pg-1', userId: 'user-1',
+        role: 'member', joinedAt: new Date(), invitedById: null,
+      })
+
+      vi.mocked(db.deck.create).mockResolvedValue({
+        id: 'deck-new', userId: 'user-1', playgroupId: 'pg-1',
+        name: 'Atraxa', format: 'commander',
+        commander1: 'Atraxa', commander2: null,
+        bracket: null, decklistUrl: null, isActive: true,
+        createdAt: new Date(), updatedAt: new Date(),
+      })
+
+      const result = await saveNewDeckFromGame({
+        playgroupId: 'pg-1',
+        playerType: 'playgroup_member',
+        userId: 'user-1',
+        format: 'commander',
+        commander1: 'Atraxa',
+      })
+
+      expect(result).toEqual({ success: true, deckId: 'deck-new', deckType: 'deck' })
+      expect(db.deck.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          bracket: null,
+          commander2: null,
+        }),
       })
     })
   })

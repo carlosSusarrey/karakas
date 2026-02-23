@@ -42,6 +42,7 @@ export type PlaygroupPlayerDeckData = {
   commander1: string | null;
   commander2: string | null;
   bracket: number | null;
+  playgroupPlayerId: string;
   playerName: string;
 };
 
@@ -52,6 +53,7 @@ export type PlaygroupDeckData = {
   commander1: string | null;
   commander2: string | null;
   bracket: number | null;
+  userId: string;
   createdBy: { username: string };
 };
 
@@ -239,6 +241,7 @@ export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupDa
         commander1: d.commander1,
         commander2: d.commander2,
         bracket: d.bracket,
+        playgroupPlayerId: p.id,
         playerName: p.name,
       })),
     })),
@@ -250,6 +253,7 @@ export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupDa
         commander1: d.commander1,
         commander2: d.commander2,
         bracket: d.bracket,
+        playgroupPlayerId: p.id,
         playerName: p.name,
       }))
     ),
@@ -260,6 +264,7 @@ export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupDa
       commander1: d.commander1,
       commander2: d.commander2,
       bracket: d.bracket,
+      userId: d.userId,
       createdBy: { username: d.user.username },
     })),
   };
@@ -306,6 +311,7 @@ export async function getPlaygroupDecks(playgroupId: string, format?: string): P
     commander1: d.commander1,
     commander2: d.commander2,
     bracket: d.bracket,
+    userId: d.userId,
     createdBy: { username: d.user.username },
   }));
 }
@@ -355,7 +361,110 @@ export async function getPlaygroupPlayerDecks(playgroupId: string, format?: stri
       commander1: d.commander1,
       commander2: d.commander2,
       bracket: d.bracket,
+      playgroupPlayerId: p.id,
       playerName: p.name,
     }))
   );
+}
+
+export type SaveNewDeckInput = {
+  playgroupId: string;
+  playerType: "playgroup_member" | "playgroup_player";
+  userId?: string;
+  playgroupPlayerId?: string;
+  format: MtgFormat;
+  commander1: string;
+  commander2?: string;
+  bracket?: number;
+};
+
+export type SaveNewDeckResult =
+  | { success: true; deckId: string; deckType: "deck" | "playgroupPlayerDeck" }
+  | { error: string };
+
+export async function saveNewDeckFromGame(
+  input: SaveNewDeckInput
+): Promise<SaveNewDeckResult> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  // Verify user is a member of the playgroup
+  const membership = await db.playgroupMember.findUnique({
+    where: {
+      playgroupId_userId: {
+        playgroupId: input.playgroupId,
+        userId: user.id,
+      },
+    },
+  });
+
+  if (!membership) {
+    return { error: "You are not a member of this playgroup" };
+  }
+
+  if (!input.commander1?.trim()) {
+    return { error: "Commander name is required to save a deck" };
+  }
+
+  const deckName = input.commander1.trim();
+
+  if (input.playerType === "playgroup_member") {
+    if (!input.userId) {
+      return { error: "User ID is required for member decks" };
+    }
+
+    try {
+      const deck = await db.deck.create({
+        data: {
+          userId: input.userId,
+          playgroupId: input.playgroupId,
+          name: deckName,
+          format: input.format,
+          commander1: input.commander1.trim(),
+          commander2: input.commander2?.trim() || null,
+          bracket: input.bracket ?? null,
+        },
+      });
+      return { success: true, deckId: deck.id, deckType: "deck" };
+    } catch (error) {
+      console.error("Failed to save new deck:", error);
+      return { error: "Failed to save deck. Please try again." };
+    }
+  }
+
+  if (input.playerType === "playgroup_player") {
+    if (!input.playgroupPlayerId) {
+      return { error: "Player ID is required for player decks" };
+    }
+
+    const player = await db.playgroupPlayer.findUnique({
+      where: { id: input.playgroupPlayerId },
+      select: { playgroupId: true },
+    });
+
+    if (!player || player.playgroupId !== input.playgroupId) {
+      return { error: "Player not found in this playgroup" };
+    }
+
+    try {
+      const deck = await db.playgroupPlayerDeck.create({
+        data: {
+          playgroupPlayerId: input.playgroupPlayerId,
+          name: deckName,
+          format: input.format,
+          commander1: input.commander1.trim(),
+          commander2: input.commander2?.trim() || null,
+          bracket: input.bracket ?? null,
+        },
+      });
+      return { success: true, deckId: deck.id, deckType: "playgroupPlayerDeck" };
+    } catch (error) {
+      console.error("Failed to save new player deck:", error);
+      return { error: "Failed to save deck. Please try again." };
+    }
+  }
+
+  return { error: "Invalid player type" };
 }
