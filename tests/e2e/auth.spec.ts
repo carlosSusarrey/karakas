@@ -5,10 +5,10 @@ test.describe('Authentication', () => {
     test('should display login form', async ({ page }) => {
       await page.goto('/login')
 
-      await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
+      await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible()
       await expect(page.getByLabel(/email/i)).toBeVisible()
       await expect(page.getByLabel(/password/i)).toBeVisible()
-      await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible()
+      await expect(page.getByRole('button', { name: /log in/i })).toBeVisible()
     })
 
     test('should show error for invalid credentials', async ({ page }) => {
@@ -16,7 +16,7 @@ test.describe('Authentication', () => {
 
       await page.getByLabel(/email/i).fill('invalid@example.com')
       await page.getByLabel(/password/i).fill('wrongpassword')
-      await page.getByRole('button', { name: /sign in/i }).click()
+      await page.getByRole('button', { name: /log in/i }).click()
 
       await expect(page.getByText(/invalid/i)).toBeVisible()
     })
@@ -33,7 +33,7 @@ test.describe('Authentication', () => {
     test('should display signup form', async ({ page }) => {
       await page.goto('/signup')
 
-      await expect(page.getByRole('heading', { name: /sign up|create account/i })).toBeVisible()
+      await expect(page.getByRole('heading', { name: /create your account/i })).toBeVisible()
       await expect(page.getByLabel(/email/i)).toBeVisible()
       await expect(page.getByLabel(/password/i)).toBeVisible()
     })
