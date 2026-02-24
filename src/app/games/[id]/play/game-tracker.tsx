@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback, useRef } from "react";
 import type { Game, GamePlayer, Deck, PowerPlay } from "@/generated/prisma/client";
 import {
   FORMAT_LABELS,
@@ -11,6 +11,7 @@ import {
   type MtgFormat,
   type PowerPlayType,
 } from "@/types/mtg";
+import type { SuggestedEvent } from "@/types/ai-events";
 import {
   updateTurnCount,
   eliminatePlayer,
@@ -21,6 +22,9 @@ import {
 } from "./actions";
 import { Header } from "@/components/header";
 import { CardAutocomplete } from "@/components/card-autocomplete";
+import { useAudioRecorder } from "@/hooks/use-audio-recorder";
+import { AiRecordingControls } from "@/components/ai-recording-controls";
+import { AiSuggestionsPanel } from "@/components/ai-suggestions-panel";
 
 type PlayerUser = { id: string; username: string } | null;
 type PlayerPlaygroupPlayer = { id: string; name: string } | null;
@@ -55,6 +59,72 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
     cardName: "",
   });
 
+  // AI state
+  const [aiSuggestions, setAiSuggestions] = useState<SuggestedEvent[]>([]);
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiChunksProcessed, setAiChunksProcessed] = useState(0);
+  const cumulativeTranscriptRef = useRef("");
+  const turnsRef = useRef(turns);
+  turnsRef.current = turns;
+
+  const processAudioChunk = useCallback(
+    async (chunk: Blob) => {
+      setAiProcessing(true);
+      setAiError(null);
+      try {
+        // Transcribe
+        const formData = new FormData();
+        formData.append("audio", chunk);
+        const transcribeRes = await fetch(
+          `/api/games/${game.id}/transcribe`,
+          { method: "POST", body: formData }
+        );
+        if (!transcribeRes.ok) {
+          const err = await transcribeRes.json();
+          throw new Error(err.error || "Transcription failed");
+        }
+        const { transcript } = await transcribeRes.json();
+        if (!transcript?.trim()) {
+          setAiChunksProcessed((n) => n + 1);
+          return;
+        }
+
+        // Extract events
+        const extractRes = await fetch(
+          `/api/games/${game.id}/extract-events`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              transcript,
+              previousTranscript: cumulativeTranscriptRef.current,
+              currentTurn: turnsRef.current,
+            }),
+          }
+        );
+        const { events } = await extractRes.json();
+        cumulativeTranscriptRef.current += "\n" + transcript;
+        if (events?.length) {
+          setAiSuggestions((prev) => [...prev, ...events]);
+        }
+        setAiChunksProcessed((n) => n + 1);
+      } catch (err) {
+        setAiError(err instanceof Error ? err.message : "Processing failed");
+      } finally {
+        setAiProcessing(false);
+      }
+    },
+    [game.id]
+  );
+
+  const { isRecording, isSupported, startRecording, stopRecording } =
+    useAudioRecorder({
+      chunkIntervalMs: 5 * 60 * 1000,
+      onChunkReady: processAudioChunk,
+      onError: setAiError,
+    });
+
   const activePlayers = game.players.filter((p) => p.eliminatedTurn === null);
   const eliminatedPlayers = game.players
     .filter((p) => p.eliminatedTurn !== null)
@@ -68,6 +138,51 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
       return player.playgroupPlayer.name;
     }
     return player.guestName || "Unknown Player";
+  }
+
+  function resolvePlayerByName(name: string) {
+    return game.players.find((p) => {
+      const pName = getPlayerName(p).toLowerCase();
+      return pName === name.toLowerCase() || pName.includes(name.toLowerCase()) || name.toLowerCase().includes(pName);
+    });
+  }
+
+  const playerNames = game.players.map((p) => getPlayerName(p));
+
+  function handleAcceptSuggestion(event: SuggestedEvent, resolvedPlayerName?: string) {
+    const playerName = resolvedPlayerName || (event.type !== "turn_advance" ? event.playerName : "");
+    const player = playerName ? resolvePlayerByName(playerName) : undefined;
+
+    if (event.type === "turn_advance") {
+      const newTurns = event.newTurn;
+      setTurns(newTurns);
+      startTransition(async () => {
+        await updateTurnCount(game.id, newTurns);
+      });
+    } else if (event.type === "elimination" && player) {
+      handleEliminate(player.id);
+    } else if (event.type === "power_play" && player) {
+      startTransition(async () => {
+        await addPowerPlay(
+          game.id,
+          player.id,
+          player.userId || null,
+          event.turn ?? turns,
+          event.powerPlayType,
+          event.description,
+          event.cardName
+        );
+        router.refresh();
+      });
+    }
+
+    setAiSuggestions((prev) =>
+      prev.filter((s) => s !== event)
+    );
+  }
+
+  function handleDismissSuggestion(index: number) {
+    setAiSuggestions((prev) => prev.filter((_, i) => i !== index));
   }
 
   function handleTurnChange(delta: number) {
@@ -126,6 +241,39 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
     });
   }
 
+  const [showSummaryLoading, setShowSummaryLoading] = useState(false);
+
+  async function handleRequestEndGame() {
+    // If AI was used, stop recording and run a final summary pass
+    if (cumulativeTranscriptRef.current.trim()) {
+      if (isRecording) stopRecording();
+      setShowSummaryLoading(true);
+      try {
+        const extractRes = await fetch(
+          `/api/games/${game.id}/extract-events`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              transcript: cumulativeTranscriptRef.current,
+              currentTurn: turns,
+              isSummary: true,
+            }),
+          }
+        );
+        const { events } = await extractRes.json();
+        if (events?.length) {
+          setAiSuggestions((prev) => [...prev, ...events]);
+        }
+      } catch {
+        // Summary failed — continue to end game anyway
+      } finally {
+        setShowSummaryLoading(false);
+      }
+    }
+    setShowEndGameModal(true);
+  }
+
   function handleEndGame(winnerId: string | null, isDraw: boolean) {
     startTransition(async () => {
       await endGame(game.id, winnerId, isDraw);
@@ -163,6 +311,17 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
               >
                 +
               </button>
+            </div>
+            <div className="mt-4 flex justify-center">
+              <AiRecordingControls
+                isRecording={isRecording}
+                isSupported={isSupported}
+                isProcessing={aiProcessing}
+                chunksProcessed={aiChunksProcessed}
+                error={aiError}
+                onStart={startRecording}
+                onStop={stopRecording}
+              />
             </div>
           </div>
 
@@ -252,6 +411,14 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
             </div>
           )}
 
+          {/* AI Suggestions */}
+          <AiSuggestionsPanel
+            suggestions={aiSuggestions}
+            playerNames={playerNames}
+            onAccept={handleAcceptSuggestion}
+            onDismiss={handleDismissSuggestion}
+          />
+
           {/* Power Plays Log */}
           {game.powerPlays.length > 0 && (
             <div className="mb-6">
@@ -294,11 +461,11 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
           {/* End Game Button */}
           <div className="mt-8">
             <button
-              onClick={() => setShowEndGameModal(true)}
-              disabled={isPending}
+              onClick={handleRequestEndGame}
+              disabled={isPending || showSummaryLoading}
               className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-amber-800 text-white py-4 rounded-xl font-semibold text-lg transition-colors"
             >
-              End Game
+              {showSummaryLoading ? "Running AI Summary..." : "End Game"}
             </button>
           </div>
         </div>
