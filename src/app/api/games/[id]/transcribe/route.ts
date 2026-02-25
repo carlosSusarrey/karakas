@@ -43,10 +43,12 @@ export async function POST(
   }
 
   try {
+    console.log("[AI transcribe] Audio file:", audioFile.name, audioFile.size, "bytes, type:", audioFile.type);
     const transcript = await transcribeAudio(audioFile);
+    console.log("[AI transcribe] Result:", JSON.stringify(transcript).slice(0, 200));
     return NextResponse.json({ transcript });
   } catch (error) {
-    console.error("Transcription failed:", error);
+    console.error("[AI transcribe] Failed:", error);
     return NextResponse.json(
       { error: "Transcription failed" },
       { status: 500 }

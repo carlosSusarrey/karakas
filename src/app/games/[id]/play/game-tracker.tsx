@@ -70,27 +70,33 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
 
   const processAudioChunk = useCallback(
     async (chunk: Blob) => {
+      console.log("[AI] Chunk received:", chunk.size, "bytes, type:", chunk.type);
       setAiProcessing(true);
       setAiError(null);
       try {
         // Transcribe
         const formData = new FormData();
         formData.append("audio", chunk);
+        console.log("[AI] Sending to /transcribe...");
         const transcribeRes = await fetch(
           `/api/games/${game.id}/transcribe`,
           { method: "POST", body: formData }
         );
         if (!transcribeRes.ok) {
           const err = await transcribeRes.json();
+          console.error("[AI] Transcribe error:", err);
           throw new Error(err.error || "Transcription failed");
         }
         const { transcript } = await transcribeRes.json();
+        console.log("[AI] Transcript:", JSON.stringify(transcript));
         if (!transcript?.trim()) {
+          console.log("[AI] Empty transcript, skipping extraction");
           setAiChunksProcessed((n) => n + 1);
           return;
         }
 
         // Extract events
+        console.log("[AI] Sending to /extract-events...");
         const extractRes = await fetch(
           `/api/games/${game.id}/extract-events`,
           {
@@ -103,13 +109,16 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
             }),
           }
         );
-        const { events } = await extractRes.json();
+        const extractData = await extractRes.json();
+        console.log("[AI] Extract response:", JSON.stringify(extractData));
+        const { events } = extractData;
         cumulativeTranscriptRef.current += "\n" + transcript;
         if (events?.length) {
           setAiSuggestions((prev) => [...prev, ...events]);
         }
         setAiChunksProcessed((n) => n + 1);
       } catch (err) {
+        console.error("[AI] Processing error:", err);
         setAiError(err instanceof Error ? err.message : "Processing failed");
       } finally {
         setAiProcessing(false);
@@ -120,7 +129,7 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
 
   const { isRecording, isSupported, startRecording, stopRecording } =
     useAudioRecorder({
-      chunkIntervalMs: 5 * 60 * 1000,
+      chunkIntervalMs: 15 * 1000, // TODO: change back to 5 * 60 * 1000 for production
       onChunkReady: processAudioChunk,
       onError: setAiError,
     });

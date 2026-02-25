@@ -69,14 +69,18 @@ export async function POST(
   };
 
   try {
+    console.log("[AI extract] ANTHROPIC_API_KEY present:", !!process.env.ANTHROPIC_API_KEY, "length:", process.env.ANTHROPIC_API_KEY?.length);
+    console.log("[AI extract] Transcript:", body.transcript.slice(0, 200));
+    console.log("[AI extract] Context players:", context.players.map(p => p.name));
     const events = await extractGameEvents(
       body.transcript,
       context,
       body.isSummary ?? false
     );
+    console.log("[AI extract] Events:", JSON.stringify(events).slice(0, 500));
     return NextResponse.json({ events });
   } catch (error) {
-    console.error("Event extraction failed:", error);
+    console.error("[AI extract] Failed:", error);
     return NextResponse.json({ events: [], error: "Extraction failed" });
   }
 }
