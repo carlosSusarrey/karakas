@@ -29,8 +29,8 @@ export async function createDeck(
   }
 
   const bracket = bracketStr ? parseInt(bracketStr, 10) : null;
-  if (bracket !== null && (bracket < 1 || bracket > 4)) {
-    return { error: `Invalid bracket value "${bracketStr}". Must be between 1 and 4.` };
+  if (bracket !== null && (bracket < 1 || bracket > 5)) {
+    return { error: `Invalid bracket value "${bracketStr}". Must be between 1 and 5.` };
   }
 
   try {

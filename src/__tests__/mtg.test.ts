@@ -50,12 +50,12 @@ describe('MTG Types', () => {
   })
 
   describe('EDH_BRACKETS', () => {
-    it('contains brackets 1 through 4', () => {
-      expect(EDH_BRACKETS).toEqual([1, 2, 3, 4])
+    it('contains brackets 1 through 5', () => {
+      expect(EDH_BRACKETS).toEqual([1, 2, 3, 4, 5])
     })
 
-    it('has exactly 4 brackets', () => {
-      expect(EDH_BRACKETS).toHaveLength(4)
+    it('has exactly 5 brackets', () => {
+      expect(EDH_BRACKETS).toHaveLength(5)
     })
   })
 

@@ -48,15 +48,16 @@ export const COMMANDER_FORMATS: MtgFormat[] = [
 // Formats that use EDH brackets
 export const BRACKET_FORMATS: MtgFormat[] = ["commander"];
 
-// EDH Brackets (1-4)
-export const EDH_BRACKETS = [1, 2, 3, 4] as const;
+// EDH Brackets (1-5)
+export const EDH_BRACKETS = [1, 2, 3, 4, 5] as const;
 export type EdhBracket = (typeof EDH_BRACKETS)[number];
 
 export const BRACKET_DESCRIPTIONS: Record<EdhBracket, string> = {
-  1: "Precons & Casual - Low power, minimal interaction",
-  2: "Casual Upgraded - Improved precons, more synergy",
-  3: "Optimized - Tuned decks, efficient combos",
-  4: "Competitive (cEDH) - Maximum power, fast wins",
+  1: "Exhibition - Theme and creativity over power",
+  2: "Core - Unoptimized, straightforward, social",
+  3: "Upgraded - Strong synergy, effective disruption",
+  4: "Optimized - Fast, lethal, consistent",
+  5: "cEDH - Competitive metagame excellence",
 };
 
 // Power Play Types

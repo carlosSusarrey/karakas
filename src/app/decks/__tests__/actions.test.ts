@@ -120,20 +120,20 @@ describe('Deck Actions', () => {
       const formData = createFormData({ name: 'Test Deck', format: 'commander', bracket: '0' })
       const result = await createDeck(formData)
 
-      expect(result).toEqual({ error: 'Invalid bracket value "0". Must be between 1 and 4.' })
+      expect(result).toEqual({ error: 'Invalid bracket value "0". Must be between 1 and 5.' })
     })
 
-    it('returns error when bracket is invalid (greater than 4)', async () => {
+    it('returns error when bracket is invalid (greater than 5)', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
         username: 'testuser',
       })
 
-      const formData = createFormData({ name: 'Test Deck', format: 'commander', bracket: '5' })
+      const formData = createFormData({ name: 'Test Deck', format: 'commander', bracket: '6' })
       const result = await createDeck(formData)
 
-      expect(result).toEqual({ error: 'Invalid bracket value "5". Must be between 1 and 4.' })
+      expect(result).toEqual({ error: 'Invalid bracket value "6". Must be between 1 and 5.' })
     })
 
     it('creates deck with minimal data', async () => {
@@ -745,7 +745,7 @@ describe('Deck Actions', () => {
         updatedAt: new Date(),
       })
 
-      const formData = createFormData({ name: 'Updated Deck', format: 'commander', bracket: '5' })
+      const formData = createFormData({ name: 'Updated Deck', format: 'commander', bracket: '6' })
       const result = await updateDeck('deck-1', formData)
 
       expect(result).toEqual({ error: 'Invalid bracket value' })

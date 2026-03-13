@@ -249,7 +249,7 @@ describe('Playgroup Player Deck Actions', () => {
         invitedById: null,
       })
 
-      const formData = createFormData({ name: 'Test Deck', format: 'commander', bracket: '5' })
+      const formData = createFormData({ name: 'Test Deck', format: 'commander', bracket: '6' })
       const result = await createPlaygroupPlayerDeck('player-1', formData)
 
       expect(result).toEqual({ error: 'Invalid bracket value' })

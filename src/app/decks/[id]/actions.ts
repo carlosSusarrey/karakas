@@ -97,7 +97,7 @@ export async function updateDeck(
   }
 
   const bracket = bracketStr ? parseInt(bracketStr, 10) : null;
-  if (bracket !== null && (bracket < 1 || bracket > 4)) {
+  if (bracket !== null && (bracket < 1 || bracket > 5)) {
     return { error: "Invalid bracket value" };
   }
 
