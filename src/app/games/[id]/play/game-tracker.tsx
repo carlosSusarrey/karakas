@@ -46,7 +46,7 @@ type GameWithRelations = Game & {
   powerPlays: (PowerPlay & { gamePlayer: PowerPlayGamePlayer })[];
 };
 
-export function GameTracker({ game, username }: { game: GameWithRelations; username?: string }) {
+export function GameTracker({ game, username, aiEnabled = false }: { game: GameWithRelations; username?: string; aiEnabled?: boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [turns, setTurns] = useState(game.totalTurns || 1);
@@ -321,17 +321,19 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
                 +
               </button>
             </div>
-            <div className="mt-4 flex justify-center">
-              <AiRecordingControls
-                isRecording={isRecording}
-                isSupported={isSupported}
-                isProcessing={aiProcessing}
-                chunksProcessed={aiChunksProcessed}
-                error={aiError}
-                onStart={startRecording}
-                onStop={stopRecording}
-              />
-            </div>
+            {aiEnabled && (
+              <div className="mt-4 flex justify-center">
+                <AiRecordingControls
+                  isRecording={isRecording}
+                  isSupported={isSupported}
+                  isProcessing={aiProcessing}
+                  chunksProcessed={aiChunksProcessed}
+                  error={aiError}
+                  onStart={startRecording}
+                  onStop={stopRecording}
+                />
+              </div>
+            )}
           </div>
 
           {/* Active Players */}
@@ -421,12 +423,14 @@ export function GameTracker({ game, username }: { game: GameWithRelations; usern
           )}
 
           {/* AI Suggestions */}
-          <AiSuggestionsPanel
-            suggestions={aiSuggestions}
-            playerNames={playerNames}
-            onAccept={handleAcceptSuggestion}
-            onDismiss={handleDismissSuggestion}
-          />
+          {aiEnabled && (
+            <AiSuggestionsPanel
+              suggestions={aiSuggestions}
+              playerNames={playerNames}
+              onAccept={handleAcceptSuggestion}
+              onDismiss={handleDismissSuggestion}
+            />
+          )}
 
           {/* Power Plays Log */}
           {game.powerPlays.length > 0 && (

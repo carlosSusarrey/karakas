@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isAiEnabled } from "@/lib/feature-flags";
 import { GameTracker } from "./game-tracker";
 
 export default async function PlayGamePage({
@@ -62,5 +63,7 @@ export default async function PlayGamePage({
     redirect(`/games/${id}`);
   }
 
-  return <GameTracker game={game} username={user.username} />;
+  const aiEnabled = isAiEnabled(user.username);
+
+  return <GameTracker game={game} username={user.username} aiEnabled={aiEnabled} />;
 }
