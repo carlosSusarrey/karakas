@@ -33,7 +33,7 @@ IMPORTANT:
 - Do NOT extract mundane actions (drawing for turn, playing a basic land) unless notably impactful.
 - Do NOT re-extract events from the previous transcript — only extract from the NEW transcript.`;
 
-function buildUserMessage(
+export function buildUserMessage(
   transcript: string,
   context: ExtractionContext,
   isSummary: boolean
@@ -64,7 +64,7 @@ ${playerList}`;
   return message;
 }
 
-const EXTRACT_EVENTS_TOOL: Anthropic.Messages.Tool = {
+export const EXTRACT_EVENTS_TOOL: Anthropic.Messages.Tool = {
   name: "extract_events",
   description: "Extract notable MTG game events from the transcript",
   input_schema: {
@@ -99,7 +99,7 @@ const EXTRACT_EVENTS_TOOL: Anthropic.Messages.Tool = {
   },
 };
 
-function validateEvent(raw: Record<string, unknown>): SuggestedEvent | null {
+export function validateEvent(raw: Record<string, unknown>): SuggestedEvent | null {
   const type = raw.type as string;
   const confidence = raw.confidence as "high" | "medium" | "low";
 
