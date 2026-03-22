@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { PowerPlayType } from "@/types/mtg";
+import type { ExtractedPlayLog } from "@/types/ai-events";
 
 export async function getGameForPlay(gameId: string) {
   const user = await getCurrentUser();
@@ -264,5 +265,105 @@ export async function endGame(
   } catch (error) {
     console.error("Failed to end game:", error);
     return { error: "Failed to end game" };
+  }
+}
+
+export async function savePlayLogs(
+  gameId: string,
+  playLogs: ExtractedPlayLog[]
+): Promise<{ success: true; count: number } | { error: string }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  if (playLogs.length === 0) {
+    return { success: true, count: 0 };
+  }
+
+  try {
+    const game = await db.game.findUnique({
+      where: { id: gameId },
+      include: {
+        players: {
+          include: {
+            user: { select: { username: true } },
+            playgroupPlayer: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!game) {
+      return { error: "Game not found" };
+    }
+
+    // Build name → gamePlayerId map
+    const playerMap = new Map<string, string>();
+    for (const p of game.players) {
+      const name = p.user?.username ?? p.playgroupPlayer?.name ?? p.guestName ?? "";
+      if (name) playerMap.set(name.toLowerCase(), p.id);
+    }
+
+    function resolvePlayerId(name: string): string | null {
+      return playerMap.get(name.toLowerCase()) ?? null;
+    }
+
+    // Build all create operations
+    const creates = [];
+    for (const log of playLogs) {
+      const gamePlayerId = resolvePlayerId(log.playerName);
+      if (!gamePlayerId) continue;
+
+      const activeGamePlayerId = log.activePlayerName
+        ? resolvePlayerId(log.activePlayerName)
+        : null;
+
+      // Map attackedPlayerNames to IDs
+      const attackedPlayerIds = log.attackedPlayerNames
+        ?.map((n) => resolvePlayerId(n))
+        .filter((id): id is string => id !== null)
+        .join(",") || null;
+
+      // Map eliminatedPlayerNames to IDs
+      const eliminatedPlayerIds = log.eliminatedPlayerNames
+        ?.map((n) => resolvePlayerId(n))
+        .filter((id): id is string => id !== null)
+        .join(",") || null;
+
+      creates.push({
+        gameId,
+        gamePlayerId,
+        turnNumber: log.turnNumber,
+        activeGamePlayerId,
+        lifeTotal: log.lifeTotal ?? null,
+        lifeDelta: log.lifeDelta ?? null,
+        landsPlayed: log.landsPlayed ?? null,
+        spellsCast: log.spellsCast ?? null,
+        creaturesAttacked: log.creaturesAttacked ?? null,
+        commanderDamageDealt: log.commanderDamageDealt ?? null,
+        manaSpent: log.manaSpent ?? null,
+        attackedPlayerIds,
+        eliminatedPlayerIds,
+        cardsPlayed: log.cardsPlayed?.join(",") || null,
+        summary: log.summary ?? null,
+      });
+    }
+
+    if (creates.length === 0) {
+      return { error: "No valid play logs to save" };
+    }
+
+    // Delete existing play logs for this game before inserting new ones
+    await db.gamePlayLog.deleteMany({ where: { gameId } });
+
+    // Bulk create
+    const result = await db.gamePlayLog.createMany({ data: creates });
+
+    revalidatePath(`/games/${gameId}`);
+    return { success: true, count: result.count };
+  } catch (error) {
+    console.error("Failed to save play logs:", error);
+    return { error: "Failed to save play logs" };
   }
 }

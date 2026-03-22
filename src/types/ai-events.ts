@@ -36,3 +36,29 @@ export interface ExtractionContext {
   format: string;
   previousTranscript: string;
 }
+
+// ─── Play Log Extraction Types ──────────────────────────────────────
+
+export interface ExtractedPlayLog {
+  playerName: string;
+  turnNumber: number;
+  activePlayerName?: string; // Set when acting on someone else's turn
+  lifeTotal?: number;
+  lifeDelta?: number;
+  landsPlayed?: number;
+  spellsCast?: number;
+  creaturesAttacked?: number;
+  commanderDamageDealt?: number;
+  manaSpent?: number;
+  cardsPlayed?: string[];
+  attackedPlayerNames?: string[];
+  eliminatedPlayerNames?: string[];
+  summary?: string;
+  confidence: Confidence;
+}
+
+export interface PlayLogExtractionContext {
+  players: { name: string; commander1?: string; commander2?: string }[];
+  totalTurns: number;
+  format: string;
+}

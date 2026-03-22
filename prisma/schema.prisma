@@ -256,6 +256,7 @@ model GamePlayer {
   playgroupPlayerDeck  PlaygroupPlayerDeck? @relation(fields: [playgroupPlayerDeckId], references: [id])
   powerPlays           PowerPlay[]
   playLogs             GamePlayLog[]
+  activeTurnLogs       GamePlayLog[]  @relation("ActiveTurnPlayer")
 
   @@unique([gameId, userId])
 }
@@ -269,6 +270,11 @@ model GamePlayLog {
   gameId       String
   gamePlayerId String
   turnNumber   Int     // Which turn (1, 2, 3, ...)
+
+  // Out-of-turn tracking: whose turn it actually is
+  // null = this is the active player's own turn
+  // set = this player acted during another player's turn (instants, flash, abilities)
+  activeGamePlayerId String?
 
   // Structured data for analysis
   lifeTotal       Int?     // Player's life total at end of this turn
@@ -292,10 +298,11 @@ model GamePlayLog {
   createdAt    DateTime @default(now())
 
   // Relations
-  game       Game       @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  gamePlayer GamePlayer @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+  game         Game       @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gamePlayer   GamePlayer @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+  activePlayer GamePlayer? @relation("ActiveTurnPlayer", fields: [activeGamePlayerId], references: [id])
 
-  @@unique([gameId, gamePlayerId, turnNumber])
+  @@unique([gameId, gamePlayerId, turnNumber, activeGamePlayerId])
 }
 
 // ============================================

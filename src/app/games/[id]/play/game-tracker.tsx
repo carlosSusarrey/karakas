@@ -19,12 +19,15 @@ import {
   addPowerPlay,
   removePowerPlay,
   endGame,
+  savePlayLogs,
 } from "./actions";
 import { Header } from "@/components/header";
 import { CardAutocomplete } from "@/components/card-autocomplete";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { AiRecordingControls } from "@/components/ai-recording-controls";
 import { AiSuggestionsPanel } from "@/components/ai-suggestions-panel";
+import { PlayLogTextInput, type ExtractedPlayLogFromApi } from "@/components/play-log-text-input";
+import { PlayLogReviewPanel } from "@/components/play-log-review-panel";
 
 type PlayerUser = { id: string; username: string } | null;
 type PlayerPlaygroupPlayer = { id: string; name: string } | null;
@@ -250,17 +253,21 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
     });
   }
 
+  // Play log state
+  const [extractedPlayLogs, setExtractedPlayLogs] = useState<ExtractedPlayLogFromApi[]>([]);
+  const [showPlayLogInput, setShowPlayLogInput] = useState(false);
+
   const [showSummaryLoading, setShowSummaryLoading] = useState(false);
 
   async function handleRequestEndGame() {
-    // If AI was used, stop recording and run a final summary pass
+    // If AI was used, stop recording and run a final summary pass + play log extraction
     if (cumulativeTranscriptRef.current.trim()) {
       if (isRecording) stopRecording();
       setShowSummaryLoading(true);
       try {
-        const extractRes = await fetch(
-          `/api/games/${game.id}/extract-events`,
-          {
+        // Run event extraction and play log extraction in parallel
+        const [extractRes, playLogRes] = await Promise.all([
+          fetch(`/api/games/${game.id}/extract-events`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -268,11 +275,24 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
               currentTurn: turns,
               isSummary: true,
             }),
-          }
-        );
+          }),
+          fetch(`/api/games/${game.id}/extract-play-logs`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              transcript: cumulativeTranscriptRef.current,
+            }),
+          }),
+        ]);
+
         const { events } = await extractRes.json();
         if (events?.length) {
           setAiSuggestions((prev) => [...prev, ...events]);
+        }
+
+        const { playLogs } = await playLogRes.json();
+        if (playLogs?.length) {
+          setExtractedPlayLogs(playLogs);
         }
       } catch {
         // Summary failed — continue to end game anyway
@@ -468,6 +488,44 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Play Log Extraction */}
+          {aiEnabled && (
+            <div className="mb-6">
+              {extractedPlayLogs.length > 0 ? (
+                <PlayLogReviewPanel
+                  playLogs={extractedPlayLogs}
+                  playerNames={playerNames}
+                  onSave={async (logs) => {
+                    const result = await savePlayLogs(game.id, logs);
+                    if ("error" in result) {
+                      console.error("Failed to save play logs:", result.error);
+                    }
+                  }}
+                  onDismissAll={() => setExtractedPlayLogs([])}
+                />
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowPlayLogInput(!showPlayLogInput)}
+                    className="text-sm text-zinc-400 hover:text-amber-400 transition-colors flex items-center gap-1.5 mb-3"
+                  >
+                    <svg className={`w-4 h-4 transition-transform ${showPlayLogInput ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    Generate Play Logs from Transcript
+                  </button>
+                  {showPlayLogInput && (
+                    <PlayLogTextInput
+                      gameId={game.id}
+                      onExtracted={setExtractedPlayLogs}
+                      disabled={isPending}
+                    />
+                  )}
+                </>
+              )}
             </div>
           )}
 
