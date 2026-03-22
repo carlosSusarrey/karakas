@@ -223,6 +223,7 @@ model Game {
   playgroup   Playgroup?   @relation(fields: [playgroupId], references: [id], onDelete: SetNull)
   players     GamePlayer[]
   powerPlays  PowerPlay[]
+  playLogs    GamePlayLog[]
 }
 
 model GamePlayer {
@@ -254,8 +255,47 @@ model GamePlayer {
   deck                 Deck?                @relation(fields: [deckId], references: [id])
   playgroupPlayerDeck  PlaygroupPlayerDeck? @relation(fields: [playgroupPlayerDeckId], references: [id])
   powerPlays           PowerPlay[]
+  playLogs             GamePlayLog[]
 
   @@unique([gameId, userId])
+}
+
+// ============================================
+// PLAY TRACKING (Turn-by-turn game log)
+// ============================================
+
+model GamePlayLog {
+  id           String  @id @default(cuid())
+  gameId       String
+  gamePlayerId String
+  turnNumber   Int     // Which turn (1, 2, 3, ...)
+
+  // Structured data for analysis
+  lifeTotal       Int?     // Player's life total at end of this turn
+  lifeDelta       Int?     // Life change this turn (negative = damage taken)
+  landsPlayed     Int?     // Number of lands played this turn
+  spellsCast      Int?     // Number of spells cast this turn
+  creaturesAttacked Int?   // Number of creatures that attacked
+  commanderDamageDealt Int? // Commander damage dealt this turn (commander formats)
+  manaSpent       Int?     // Total mana spent this turn (approximate)
+
+  // Combat tracking
+  attackedPlayerIds String? // Comma-separated gamePlayer IDs of attacked players
+  eliminatedPlayerIds String? // Comma-separated gamePlayer IDs of players eliminated this turn
+
+  // Cards played (structured for analysis)
+  cardsPlayed  String?  // Comma-separated card names played this turn
+
+  // Free-text
+  summary      String?  // Human-readable summary of the turn
+
+  createdAt    DateTime @default(now())
+
+  // Relations
+  game       Game       @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gamePlayer GamePlayer @relation(fields: [gamePlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, gamePlayerId, turnNumber])
 }
 
 // ============================================

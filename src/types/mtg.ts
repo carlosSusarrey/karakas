@@ -93,6 +93,23 @@ export const POWER_PLAY_LABELS: Record<PowerPlayType, string> = {
   other: "Other",
 };
 
+// Play Log - structured turn-by-turn game tracking
+export interface PlayLogEntry {
+  turnNumber: number;
+  gamePlayerId: string;
+  lifeTotal?: number;
+  lifeDelta?: number;
+  landsPlayed?: number;
+  spellsCast?: number;
+  creaturesAttacked?: number;
+  commanderDamageDealt?: number;
+  manaSpent?: number;
+  attackedPlayerIds?: string[]; // gamePlayer IDs
+  eliminatedPlayerIds?: string[]; // gamePlayer IDs
+  cardsPlayed?: string[]; // card names
+  summary?: string;
+}
+
 // Helper functions
 export function isCommanderFormat(format: string): boolean {
   return COMMANDER_FORMATS.includes(format as MtgFormat);
