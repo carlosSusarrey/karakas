@@ -37,7 +37,7 @@ export async function GET(
         );
       }
       const codeVerifier = generateCodeVerifier();
-      cookieStore.set("oauth_code_verifier", codeVerifier, {
+      cookieStore.set("oauth_code_verifier_google", codeVerifier, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
@@ -60,7 +60,7 @@ export async function GET(
         );
       }
       const discordCodeVerifier = generateCodeVerifier();
-      cookieStore.set("oauth_code_verifier", discordCodeVerifier, {
+      cookieStore.set("oauth_code_verifier_discord", discordCodeVerifier, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

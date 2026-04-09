@@ -16,7 +16,7 @@ export async function login(
 
   const user = await db.user.findFirst({
     where: {
-      OR: [{ email: identifier }, { username: identifier }],
+      OR: [{ email: identifier.toLowerCase() }, { username: identifier }],
     },
   });
 

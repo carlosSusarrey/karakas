@@ -22,7 +22,7 @@ vi.mock('@/lib/session', () => ({
 }))
 
 vi.mock('@/lib/email', () => ({
-  sendPasswordResetEmail: vi.fn(),
+  sendPasswordResetEmail: vi.fn(() => Promise.resolve({ success: true })),
 }))
 
 vi.mock('@/lib/password-reset', () => ({

@@ -26,8 +26,10 @@ export async function signup(
     return { error: "Password must be at least 8 characters." };
   }
 
+  const emailLower = email.toLowerCase();
+
   // Check for existing email
-  const existingEmail = await db.user.findUnique({ where: { email } });
+  const existingEmail = await db.user.findUnique({ where: { email: emailLower } });
   if (existingEmail) {
     return { error: "Email already in use." };
   }
@@ -42,7 +44,7 @@ export async function signup(
 
   await db.user.create({
     data: {
-      email,
+      email: emailLower,
       username,
       passwordHash,
     },

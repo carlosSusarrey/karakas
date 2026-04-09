@@ -172,7 +172,7 @@ describe('OAuth Callback Route', () => {
   it('redirects to login when state does not match', async () => {
     mockCookieStore.get.mockImplementation((name: string) => {
       if (name === 'oauth_state_google') return { value: 'different-state' }
-      if (name === 'oauth_code_verifier') return { value: 'mock-verifier' }
+      if (name === 'oauth_code_verifier_google') return { value: 'mock-verifier' }
       return undefined
     })
 
@@ -197,7 +197,7 @@ describe('OAuth Callback Route', () => {
   it('creates session for existing OAuth user', async () => {
     mockCookieStore.get.mockImplementation((name: string) => {
       if (name === 'oauth_state_google') return { value: 'test-state' }
-      if (name === 'oauth_code_verifier') return { value: 'mock-verifier' }
+      if (name === 'oauth_code_verifier_google') return { value: 'mock-verifier' }
       return undefined
     })
 
@@ -242,7 +242,7 @@ describe('OAuth Callback Route', () => {
   it('links OAuth account to existing user with same email', async () => {
     mockCookieStore.get.mockImplementation((name: string) => {
       if (name === 'oauth_state_google') return { value: 'test-state' }
-      if (name === 'oauth_code_verifier') return { value: 'mock-verifier' }
+      if (name === 'oauth_code_verifier_google') return { value: 'mock-verifier' }
       return undefined
     })
 
@@ -292,7 +292,7 @@ describe('OAuth Callback Route', () => {
   it('creates new user for new OAuth account', async () => {
     mockCookieStore.get.mockImplementation((name: string) => {
       if (name === 'oauth_state_google') return { value: 'test-state' }
-      if (name === 'oauth_code_verifier') return { value: 'mock-verifier' }
+      if (name === 'oauth_code_verifier_google') return { value: 'mock-verifier' }
       return undefined
     })
 
@@ -341,7 +341,7 @@ describe('OAuth Callback Route', () => {
   it('redirects to login when no email returned', async () => {
     mockCookieStore.get.mockImplementation((name: string) => {
       if (name === 'oauth_state_google') return { value: 'test-state' }
-      if (name === 'oauth_code_verifier') return { value: 'mock-verifier' }
+      if (name === 'oauth_code_verifier_google') return { value: 'mock-verifier' }
       return undefined
     })
 
@@ -369,7 +369,7 @@ describe('OAuth Callback Route', () => {
   it('redirects to login on OAuth failure', async () => {
     mockCookieStore.get.mockImplementation((name: string) => {
       if (name === 'oauth_state_google') return { value: 'test-state' }
-      if (name === 'oauth_code_verifier') return { value: 'mock-verifier' }
+      if (name === 'oauth_code_verifier_google') return { value: 'mock-verifier' }
       return undefined
     })
 

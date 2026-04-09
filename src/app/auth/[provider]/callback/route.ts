@@ -13,7 +13,7 @@ interface OAuthUserInfo {
 
 async function getGoogleUser(code: string): Promise<OAuthUserInfo> {
   const cookieStore = await cookies();
-  const codeVerifier = cookieStore.get("oauth_code_verifier")?.value;
+  const codeVerifier = cookieStore.get("oauth_code_verifier_google")?.value;
 
   if (!codeVerifier || !google) {
     throw new Error("Missing code verifier or Google not configured");
@@ -44,7 +44,7 @@ async function getGoogleUser(code: string): Promise<OAuthUserInfo> {
 
 async function getDiscordUser(code: string): Promise<OAuthUserInfo> {
   const cookieStore = await cookies();
-  const codeVerifier = cookieStore.get("oauth_code_verifier")?.value;
+  const codeVerifier = cookieStore.get("oauth_code_verifier_discord")?.value;
 
   if (!codeVerifier || !discord) {
     throw new Error("Missing code verifier or Discord not configured");
@@ -190,16 +190,12 @@ async function generateUniqueUsername(baseName: string): Promise<string> {
   return `${username}${Date.now()}`.slice(0, 20);
 }
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ provider: string }> }
+async function handleOAuthCallback(
+  provider: string,
+  code: string,
+  state: string,
+  error: string | null
 ) {
-  const { provider } = await params;
-  const url = new URL(request.url);
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  const error = url.searchParams.get("error");
-
   // Handle OAuth errors
   if (error) {
     console.error(`OAuth error from ${provider}:`, error);
@@ -227,11 +223,11 @@ export async function GET(
     switch (provider as OAuthProvider) {
       case "google":
         userInfo = await getGoogleUser(code);
-        cookieStore.delete("oauth_code_verifier");
+        cookieStore.delete("oauth_code_verifier_google");
         break;
       case "discord":
         userInfo = await getDiscordUser(code);
-        cookieStore.delete("oauth_code_verifier");
+        cookieStore.delete("oauth_code_verifier_discord");
         break;
       case "apple":
         userInfo = await getAppleUser(code);
@@ -257,4 +253,31 @@ export async function GET(
     console.error(`OAuth callback error for ${provider}:`, err);
     redirect("/login?error=oauth_failed");
   }
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ provider: string }> }
+) {
+  const { provider } = await params;
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const error = url.searchParams.get("error");
+
+  return handleOAuthCallback(provider, code!, state!, error);
+}
+
+// Apple Sign In sends callbacks as POST with form-encoded data
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ provider: string }> }
+) {
+  const { provider } = await params;
+  const formData = await request.formData();
+  const code = formData.get("code") as string | null;
+  const state = formData.get("state") as string | null;
+  const error = formData.get("error") as string | null;
+
+  return handleOAuthCallback(provider, code!, state!, error);
 }

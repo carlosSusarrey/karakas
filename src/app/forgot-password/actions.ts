@@ -30,7 +30,12 @@ export async function requestPasswordReset(
 
   // Create reset token and send email
   const token = await createPasswordResetToken(user.id);
-  await sendPasswordResetEmail(user.email, token);
+  const emailResult = await sendPasswordResetEmail(user.email, token);
+
+  if (!emailResult.success) {
+    console.error("Failed to send password reset email:", emailResult.error);
+    return { error: "Failed to send reset email. Please try again later." };
+  }
 
   return { success: true };
 }
