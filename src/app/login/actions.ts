@@ -30,12 +30,6 @@ export async function login(
     return { error: "Invalid email/username or password." };
   }
 
-  try {
-    await createSession(user.id);
-  } catch (err) {
-    console.error("Failed to create session:", err);
-    return { error: "Something went wrong. Please try again." };
-  }
-
+  await createSession(user.id);
   return { success: true };
 }
