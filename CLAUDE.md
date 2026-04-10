@@ -48,10 +48,8 @@ npx vitest run src/path/to/test.test.ts
 
 **Database:** Turso (libsql) with Prisma 7 ORM via `@prisma/adapter-libsql`. Singleton client in `src/lib/db.ts`.
 
-**Migrations:** Prisma CLI (`migrate dev`, `db push`) does NOT work with Turso's `libsql://` URLs. To apply migrations, run the SQL directly via Turso CLI: `turso db shell karakas < prisma/migrations/<name>/migration.sql`. Always apply the migration before deploying code that depends on it.
-
 **Key Models:**
-- User, OAuthAccount, Session, PasswordResetToken - Authentication
+- User, OAuthAccount, PasswordResetToken - Authentication
 - Playgroup, PlaygroupMember, PlaygroupPlayer - Group management (PlaygroupPlayer = non-registered players who can be claimed/linked)
 - PlaygroupInvitation, PlaygroupPlayerClaimToken - Invitation and claiming flows
 - Deck, PlaygroupPlayerDeck - Deck management (with commander1, commander2, bracket fields)
@@ -62,7 +60,7 @@ npx vitest run src/path/to/test.test.ts
 - Server Components by default (no `'use client'` unless needed)
 - Server Actions in `actions.ts` files use `"use server"` directive, return `{ success: true, ... } | { error: string }`
 - Tailwind for all styling with dark mode (zinc/amber palette)
-- DB-backed sessions via `src/lib/session.ts` — opaque 256-bit tokens in httpOnly cookie, SHA-256 hashed and stored in `Session` table, 7-day expiry
+- Cookie-based sessions via `src/lib/session.ts` — plain userId in httpOnly cookie, 7-day expiry, no DB session table
 - Use `getCurrentUser()` from `src/lib/auth.ts` for auth checks in server components/actions
 - No middleware — all auth checks happen in server components and server actions
 - Scryfall API integration in `src/lib/scryfall.ts` with 5-minute in-memory cache

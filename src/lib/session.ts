@@ -53,27 +53,23 @@ export async function getSession(): Promise<string | null> {
     return null;
   }
 
-  try {
-    const hashedToken = hashToken(token);
+  const hashedToken = hashToken(token);
 
-    const session = await db.session.findUnique({
-      where: { token: hashedToken },
-    });
+  const session = await db.session.findUnique({
+    where: { token: hashedToken },
+  });
 
-    if (!session || session.expiresAt < new Date()) {
-      if (session) {
-        await db.session.delete({ where: { id: session.id } });
-      }
-      cookieStore.delete(SESSION_COOKIE_NAME);
-      return null;
+  if (!session || session.expiresAt < new Date()) {
+    // Clean up expired session if it exists
+    if (session) {
+      await db.session.delete({ where: { id: session.id } });
     }
-
-    return session.userId;
-  } catch {
-    // If DB is unreachable, treat as no session rather than crashing the page
+    // Clear the stale cookie
     cookieStore.delete(SESSION_COOKIE_NAME);
     return null;
   }
+
+  return session.userId;
 }
 
 export async function deleteSession(): Promise<void> {
@@ -81,12 +77,8 @@ export async function deleteSession(): Promise<void> {
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (token) {
-    try {
-      const hashedToken = hashToken(token);
-      await db.session.deleteMany({ where: { token: hashedToken } });
-    } catch {
-      // Best-effort DB cleanup; always clear the cookie
-    }
+    const hashedToken = hashToken(token);
+    await db.session.deleteMany({ where: { token: hashedToken } });
   }
 
   cookieStore.delete(SESSION_COOKIE_NAME);
