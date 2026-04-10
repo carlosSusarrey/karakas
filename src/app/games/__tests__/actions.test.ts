@@ -54,7 +54,7 @@ vi.mock('next/cache', () => ({
 import { getCurrentUser } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { redirect } from 'next/navigation'
-import { createGame, getUserDecks, getPlaygroupData, getPlaygroupDecks, getPlaygroupPlayerDecks, saveNewDeckFromGame } from '../new/actions'
+import { createGame, getUserDecks, getPlaygroupData, getPlaygroupDecks, getPlaygroupPlayerDecks, getRematchData, saveNewDeckFromGame } from '../new/actions'
 import { updateGame, deleteGame } from '../[id]/edit/actions'
 import {
   updateTurnCount,
@@ -714,7 +714,7 @@ describe('Game Actions', () => {
       expect(result).toEqual({ error: 'Game not found' })
     })
 
-    it('returns error when user is not the creator', async () => {
+    it('returns error when user is not the creator of a non-playgroup game', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
@@ -738,7 +738,69 @@ describe('Game Actions', () => {
       expect(result).toEqual({ error: 'You can only delete games you created' })
     })
 
-    it('successfully deletes game', async () => {
+    it('allows playgroup member to delete a game they did not create', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'other-user',
+        playgroupId: 'pg-1',
+        format: 'commander',
+        totalTurns: 0,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue({
+        id: 'member-1',
+        playgroupId: 'pg-1',
+        userId: 'user-1',
+        role: 'member',
+        joinedAt: new Date(),
+        invitedById: null,
+      })
+
+      vi.mocked(db.game.delete).mockResolvedValue({} as never)
+
+      const result = await deleteGame('game-1')
+
+      expect(result).toEqual({ success: true })
+      expect(db.game.delete).toHaveBeenCalledWith({ where: { id: 'game-1' } })
+    })
+
+    it('rejects non-member trying to delete a playgroup game', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'other-user',
+        playgroupId: 'pg-1',
+        format: 'commander',
+        totalTurns: 0,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      vi.mocked(db.playgroupMember.findUnique).mockResolvedValue(null)
+
+      const result = await deleteGame('game-1')
+
+      expect(result).toEqual({ error: 'Only playgroup members can delete this game' })
+    })
+
+    it('successfully deletes game as creator', async () => {
       vi.mocked(getCurrentUser).mockResolvedValue({
         id: 'user-1',
         email: 'test@example.com',
@@ -763,6 +825,34 @@ describe('Game Actions', () => {
 
       expect(result).toEqual({ success: true })
       expect(db.game.delete).toHaveBeenCalledWith({ where: { id: 'game-1' } })
+    })
+
+    it('creator can delete their own playgroup game without membership check', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'user-1',
+        playgroupId: 'pg-1',
+        format: 'commander',
+        totalTurns: 0,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      vi.mocked(db.game.delete).mockResolvedValue({} as never)
+
+      const result = await deleteGame('game-1')
+
+      expect(result).toEqual({ success: true })
+      // Should not check membership since user is the creator
+      expect(db.playgroupMember.findUnique).not.toHaveBeenCalled()
     })
   })
 
@@ -1063,6 +1153,168 @@ describe('Game Actions', () => {
       expect(db.gamePlayer.update).toHaveBeenCalledWith({
         where: { id: 'p2' },
         data: { placement: 1, isWinner: false },
+      })
+    })
+
+    it('saves totalTurns when provided', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'user-1',
+        playgroupId: null,
+        format: 'commander',
+        totalTurns: 0,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        players: [
+          { id: 'p1', eliminatedTurn: null },
+          { id: 'p2', eliminatedTurn: null },
+        ],
+      })
+
+      vi.mocked(db.gamePlayer.update).mockResolvedValue({} as never)
+      vi.mocked(db.game.update).mockResolvedValue({} as never)
+
+      const result = await endGame('game-1', 'p1', false, 12)
+
+      expect(result).toEqual({ success: true })
+      expect(db.game.update).toHaveBeenCalledWith({
+        where: { id: 'game-1' },
+        data: {
+          playedAt: expect.any(Date),
+          totalTurns: 12,
+        },
+      })
+    })
+
+    it('does not set totalTurns when not provided', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'user-1',
+        playgroupId: null,
+        format: 'commander',
+        totalTurns: 0,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        players: [
+          { id: 'p1', eliminatedTurn: null },
+          { id: 'p2', eliminatedTurn: null },
+        ],
+      })
+
+      vi.mocked(db.gamePlayer.update).mockResolvedValue({} as never)
+      vi.mocked(db.game.update).mockResolvedValue({} as never)
+
+      await endGame('game-1', 'p1', false)
+
+      expect(db.game.update).toHaveBeenCalledWith({
+        where: { id: 'game-1' },
+        data: {
+          playedAt: expect.any(Date),
+        },
+      })
+    })
+
+    it('does not set totalTurns when null is passed', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'user-1',
+        playgroupId: null,
+        format: 'commander',
+        totalTurns: 0,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        players: [
+          { id: 'p1', eliminatedTurn: null },
+          { id: 'p2', eliminatedTurn: null },
+        ],
+      })
+
+      vi.mocked(db.gamePlayer.update).mockResolvedValue({} as never)
+      vi.mocked(db.game.update).mockResolvedValue({} as never)
+
+      await endGame('game-1', 'p1', false, null)
+
+      expect(db.game.update).toHaveBeenCalledWith({
+        where: { id: 'game-1' },
+        data: {
+          playedAt: expect.any(Date),
+        },
+      })
+    })
+
+    it('calculates correct placements with eliminated players', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'user-1',
+        playgroupId: null,
+        format: 'commander',
+        totalTurns: 0,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        players: [
+          { id: 'p1', eliminatedTurn: null },  // active - winner
+          { id: 'p2', eliminatedTurn: null },  // active - 2nd
+          { id: 'p3', eliminatedTurn: 8 },     // eliminated last (better)
+          { id: 'p4', eliminatedTurn: 3 },     // eliminated first (worst)
+        ],
+      })
+
+      vi.mocked(db.gamePlayer.update).mockResolvedValue({} as never)
+      vi.mocked(db.game.update).mockResolvedValue({} as never)
+
+      await endGame('game-1', 'p1', false, 10)
+
+      // Winner: placement 1
+      expect(db.gamePlayer.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { placement: 1, isWinner: true },
+      })
+      // Other active: placement 2
+      expect(db.gamePlayer.update).toHaveBeenCalledWith({
+        where: { id: 'p2' },
+        data: { placement: 2, isWinner: false },
+      })
+      // Last eliminated (turn 8): placement 3
+      expect(db.gamePlayer.update).toHaveBeenCalledWith({
+        where: { id: 'p3' },
+        data: { placement: 3, isWinner: false },
+      })
+      // First eliminated (turn 3): placement 4
+      expect(db.gamePlayer.update).toHaveBeenCalledWith({
+        where: { id: 'p4' },
+        data: { placement: 4, isWinner: false },
       })
     })
   })
@@ -1648,6 +1900,127 @@ describe('Game Actions', () => {
           bracket: null,
           commander2: null,
         }),
+      })
+    })
+  })
+
+  describe('getRematchData', () => {
+    it('returns null when not authenticated', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue(null)
+
+      const result = await getRematchData('game-1')
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null when game not found', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue(null)
+
+      const result = await getRematchData('nonexistent')
+
+      expect(result).toBeNull()
+    })
+
+    it('returns game data with players for rematch', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'user-1',
+        playgroupId: 'pg-1',
+        format: 'commander',
+        totalTurns: 10,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        players: [
+          { userId: 'user-1', playgroupPlayerId: null, guestName: null },
+          { userId: 'user-2', playgroupPlayerId: null, guestName: null },
+          { userId: null, playgroupPlayerId: 'pp-1', guestName: null },
+        ],
+      })
+
+      const result = await getRematchData('game-1')
+
+      expect(result).toEqual({
+        format: 'commander',
+        playgroupId: 'pg-1',
+        players: [
+          { type: 'playgroup_member', userId: 'user-1', playgroupPlayerId: null, guestName: null },
+          { type: 'playgroup_member', userId: 'user-2', playgroupPlayerId: null, guestName: null },
+          { type: 'playgroup_player', userId: null, playgroupPlayerId: 'pp-1', guestName: null },
+        ],
+      })
+    })
+
+    it('correctly identifies guest players', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue({
+        id: 'game-1',
+        createdById: 'user-1',
+        playgroupId: null,
+        format: 'standard',
+        totalTurns: 5,
+        notes: null,
+        playedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        players: [
+          { userId: null, playgroupPlayerId: null, guestName: 'Alice' },
+          { userId: null, playgroupPlayerId: null, guestName: 'Bob' },
+        ],
+      })
+
+      const result = await getRematchData('game-1')
+
+      expect(result).toEqual({
+        format: 'standard',
+        playgroupId: null,
+        players: [
+          { type: 'guest', userId: null, playgroupPlayerId: null, guestName: 'Alice' },
+          { type: 'guest', userId: null, playgroupPlayerId: null, guestName: 'Bob' },
+        ],
+      })
+    })
+
+    it('queries game with correct include', async () => {
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        username: 'testuser',
+      })
+
+      vi.mocked(db.game.findUnique).mockResolvedValue(null)
+
+      await getRematchData('game-1')
+
+      expect(db.game.findUnique).toHaveBeenCalledWith({
+        where: { id: 'game-1' },
+        include: {
+          players: {
+            select: {
+              userId: true,
+              playgroupPlayerId: true,
+              guestName: true,
+            },
+          },
+        },
       })
     })
   })

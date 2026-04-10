@@ -120,8 +120,23 @@ export async function deleteGame(
     return { error: "Game not found" };
   }
 
+  // Allow deletion by creator or any playgroup member
   if (game.createdById !== user.id) {
-    return { error: "You can only delete games you created" };
+    if (game.playgroupId) {
+      const membership = await db.playgroupMember.findUnique({
+        where: {
+          playgroupId_userId: {
+            playgroupId: game.playgroupId,
+            userId: user.id,
+          },
+        },
+      });
+      if (!membership) {
+        return { error: "Only playgroup members can delete this game" };
+      }
+    } else {
+      return { error: "You can only delete games you created" };
+    }
   }
 
   const playgroupId = game.playgroupId;

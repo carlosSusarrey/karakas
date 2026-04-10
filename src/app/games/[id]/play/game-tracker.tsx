@@ -51,10 +51,15 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
   const [isPending, startTransition] = useTransition();
   const [turns, setTurns] = useState(game.totalTurns || 1);
   const [showEndGameModal, setShowEndGameModal] = useState(false);
+  const [endGameTurns, setEndGameTurns] = useState("");
   const [showPowerPlayModal, setShowPowerPlayModal] = useState(false);
+  const [showEliminateModal, setShowEliminateModal] = useState(false);
+  const [eliminatePlayerId, setEliminatePlayerId] = useState<string | null>(null);
+  const [eliminateTurn, setEliminateTurn] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [powerPlayForm, setPowerPlayForm] = useState({
     type: "combo" as PowerPlayType,
+    turn: "",
     description: "",
     cardName: "",
   });
@@ -169,7 +174,12 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
         await updateTurnCount(game.id, newTurns);
       });
     } else if (event.type === "elimination" && player) {
-      handleEliminate(player.id);
+      const isFirstElimination = eliminatedPlayers.length === 0;
+      const turn = event.turn ?? (eliminatedPlayers.length + 1);
+      startTransition(async () => {
+        await eliminatePlayer(game.id, player.id, turn, isFirstElimination);
+        router.refresh();
+      });
     } else if (event.type === "power_play" && player) {
       startTransition(async () => {
         await addPowerPlay(
@@ -194,18 +204,19 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
     setAiSuggestions((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleTurnChange(delta: number) {
-    const newTurns = Math.max(1, turns + delta);
-    setTurns(newTurns);
-    startTransition(async () => {
-      await updateTurnCount(game.id, newTurns);
-    });
+  function openEliminateModal(playerId: string) {
+    setEliminatePlayerId(playerId);
+    setEliminateTurn("");
+    setShowEliminateModal(true);
   }
 
-  function handleEliminate(playerId: string) {
+  function handleConfirmEliminate() {
+    if (!eliminatePlayerId) return;
     const isFirstElimination = eliminatedPlayers.length === 0;
+    const turn = eliminateTurn ? parseInt(eliminateTurn) : eliminatedPlayers.length + 1;
     startTransition(async () => {
-      await eliminatePlayer(game.id, playerId, turns, isFirstElimination);
+      await eliminatePlayer(game.id, eliminatePlayerId, turn, isFirstElimination);
+      setShowEliminateModal(false);
       router.refresh();
     });
   }
@@ -219,21 +230,22 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
 
   function openPowerPlayModal(playerId: string) {
     setSelectedPlayerId(playerId);
-    setPowerPlayForm({ type: "combo", description: "", cardName: "" });
+    setPowerPlayForm({ type: "combo", turn: "", description: "", cardName: "" });
     setShowPowerPlayModal(true);
   }
 
   function handleAddPowerPlay() {
-    if (!selectedPlayerId || !powerPlayForm.description.trim()) return;
+    if (!selectedPlayerId || !powerPlayForm.cardName.trim()) return;
 
     const player = game.players.find((p) => p.id === selectedPlayerId);
+    const turn = powerPlayForm.turn ? parseInt(powerPlayForm.turn) : 0;
 
     startTransition(async () => {
       await addPowerPlay(
         game.id,
         selectedPlayerId,
         player?.userId || null,
-        turns,
+        turn,
         powerPlayForm.type,
         powerPlayForm.description.trim(),
         powerPlayForm.cardName.trim() || undefined
@@ -284,8 +296,9 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
   }
 
   function handleEndGame(winnerId: string | null, isDraw: boolean) {
+    const totalTurns = endGameTurns ? parseInt(endGameTurns) : null;
     startTransition(async () => {
-      await endGame(game.id, winnerId, isDraw);
+      await endGame(game.id, winnerId, isDraw, totalTurns);
       router.push(`/games/${game.id}`);
     });
   }
@@ -297,44 +310,20 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
       {/* Main Content */}
       <main className="flex-1 px-6 py-6">
         <div className="max-w-4xl mx-auto">
-          {/* Turn Counter - Prominent at top */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6 text-center">
-            <div className="text-zinc-400 text-sm uppercase tracking-wide mb-2">
-              Current Turn
+          {/* AI Recording Controls */}
+          {aiEnabled && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mb-6 flex justify-center">
+              <AiRecordingControls
+                isRecording={isRecording}
+                isSupported={isSupported}
+                isProcessing={aiProcessing}
+                chunksProcessed={aiChunksProcessed}
+                error={aiError}
+                onStart={startRecording}
+                onStop={stopRecording}
+              />
             </div>
-            <div className="flex items-center justify-center gap-6">
-              <button
-                onClick={() => handleTurnChange(-1)}
-                disabled={isPending || turns <= 1}
-                className="w-12 h-12 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-2xl font-bold transition-colors"
-              >
-                -
-              </button>
-              <span className="text-6xl font-bold text-amber-500 tabular-nums min-w-[100px]">
-                {turns}
-              </span>
-              <button
-                onClick={() => handleTurnChange(1)}
-                disabled={isPending}
-                className="w-12 h-12 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-2xl font-bold transition-colors"
-              >
-                +
-              </button>
-            </div>
-            {aiEnabled && (
-              <div className="mt-4 flex justify-center">
-                <AiRecordingControls
-                  isRecording={isRecording}
-                  isSupported={isSupported}
-                  isProcessing={aiProcessing}
-                  chunksProcessed={aiChunksProcessed}
-                  error={aiError}
-                  onStart={startRecording}
-                  onStop={stopRecording}
-                />
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Active Players */}
           <div className="mb-6">
@@ -374,7 +363,7 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
                         + Play
                       </button>
                       <button
-                        onClick={() => handleEliminate(player.id)}
+                        onClick={() => openEliminateModal(player.id)}
                         disabled={isPending}
                         className="px-3 py-1.5 text-sm bg-red-900/30 text-red-400 hover:bg-red-900/50 rounded-lg transition-colors disabled:opacity-50"
                       >
@@ -404,7 +393,7 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
                       <div>
                         <span className="font-medium">{getPlayerName(player)}</span>
                         <span className="text-zinc-500 text-sm ml-2">
-                          Turn {player.eliminatedTurn}
+                          {player.eliminatedTurn ? `Turn ${player.eliminatedTurn}` : ""}
                           {player.isFirstOut && " (First Out)"}
                         </span>
                       </div>
@@ -441,9 +430,11 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
                   <div key={play.id} className="p-3 flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded">
-                          T{play.turn}
-                        </span>
+                        {play.turn > 0 && (
+                          <span className="text-xs bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded">
+                            T{play.turn}
+                          </span>
+                        )}
                         <span className="text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">
                           {POWER_PLAY_LABELS[play.type as PowerPlayType]}
                         </span>
@@ -452,9 +443,13 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
                         </span>
                       </div>
                       <div className="text-sm mt-1">
-                        {play.description}
                         {play.cardName && (
-                          <span className="text-amber-500 ml-1">({play.cardName})</span>
+                          <span className="text-amber-500">{play.cardName}</span>
+                        )}
+                        {play.description && (
+                          <span className="text-zinc-300 ml-1">
+                            {play.cardName ? `— ${play.description}` : play.description}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -489,7 +484,22 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full">
             <h2 className="text-xl font-bold mb-4">End Game</h2>
-            <p className="text-zinc-400 mb-6">
+
+            <div className="mb-6">
+              <label className="block text-sm text-zinc-400 mb-1">
+                Total Turns (optional)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={endGameTurns}
+                onChange={(e) => setEndGameTurns(e.target.value)}
+                placeholder="How many turns?"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <p className="text-zinc-400 mb-4">
               Select the winner or declare a draw.
             </p>
 
@@ -528,6 +538,47 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
         </div>
       )}
 
+      {/* Eliminate Modal */}
+      {showEliminateModal && eliminatePlayerId && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-sm w-full">
+            <h2 className="text-xl font-bold mb-4">
+              Eliminate {getPlayerName(game.players.find((p) => p.id === eliminatePlayerId)!)}
+            </h2>
+
+            <div className="mb-6">
+              <label className="block text-sm text-zinc-400 mb-1">
+                What turn? (optional)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={eliminateTurn}
+                onChange={(e) => setEliminateTurn(e.target.value)}
+                placeholder="Turn #"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmEliminate}
+                disabled={isPending}
+                className="flex-1 bg-red-600 hover:bg-red-500 disabled:bg-red-800 text-white py-3 rounded-lg transition-colors"
+              >
+                Eliminate
+              </button>
+              <button
+                onClick={() => setShowEliminateModal(false)}
+                className="flex-1 border border-zinc-700 hover:border-zinc-500 text-zinc-300 py-3 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Power Play Modal */}
       {showPowerPlayModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
@@ -535,47 +586,50 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
             <h2 className="text-xl font-bold mb-4">Add Notable Play</h2>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">Type</label>
-                <select
-                  value={powerPlayForm.type}
-                  onChange={(e) =>
-                    setPowerPlayForm({
-                      ...powerPlayForm,
-                      type: e.target.value as PowerPlayType,
-                    })
-                  }
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
-                >
-                  {POWER_PLAY_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {POWER_PLAY_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">Type</label>
+                  <select
+                    value={powerPlayForm.type}
+                    onChange={(e) =>
+                      setPowerPlayForm({
+                        ...powerPlayForm,
+                        type: e.target.value as PowerPlayType,
+                      })
+                    }
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
+                  >
+                    {POWER_PLAY_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {POWER_PLAY_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-zinc-400 mb-1">
+                    Turn (optional)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={powerPlayForm.turn}
+                    onChange={(e) =>
+                      setPowerPlayForm({
+                        ...powerPlayForm,
+                        turn: e.target.value,
+                      })
+                    }
+                    placeholder="Turn #"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">
-                  Description *
-                </label>
-                <input
-                  type="text"
-                  value={powerPlayForm.description}
-                  onChange={(e) =>
-                    setPowerPlayForm({
-                      ...powerPlayForm,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="What happened?"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-zinc-400 mb-1">
-                  Card Name (optional)
+                  Card Name *
                 </label>
                 <CardAutocomplete
                   id="powerplay-card"
@@ -593,12 +647,30 @@ export function GameTracker({ game, username, aiEnabled = false }: { game: GameW
                   className="bg-zinc-800"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm text-zinc-400 mb-1">
+                  Description (optional)
+                </label>
+                <input
+                  type="text"
+                  value={powerPlayForm.description}
+                  onChange={(e) =>
+                    setPowerPlayForm({
+                      ...powerPlayForm,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="What happened?"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-100 focus:outline-none focus:border-amber-500"
+                />
+              </div>
             </div>
 
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleAddPowerPlay}
-                disabled={isPending || !powerPlayForm.description.trim()}
+                disabled={isPending || !powerPlayForm.cardName.trim()}
                 className="flex-1 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-800 disabled:cursor-not-allowed text-white py-3 rounded-lg transition-colors"
               >
                 Add Play

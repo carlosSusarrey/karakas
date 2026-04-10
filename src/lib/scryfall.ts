@@ -40,6 +40,7 @@ const USER_AGENT = "Karakas/1.0";
 // Simple in-memory cache
 const autocompleteCache = new Map<string, { data: string[]; timestamp: number }>();
 const cardCache = new Map<string, { data: ScryfallCard | null; timestamp: number }>();
+const searchCache = new Map<string, { data: ScryfallCard[]; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function isCacheValid(timestamp: number): boolean {
@@ -149,6 +150,37 @@ export function canBeCommander(card: ScryfallCard): boolean {
     return true;
   }
   return false;
+}
+
+export async function searchCommanders(query: string): Promise<ScryfallCard[]> {
+  if (query.length < 2) return [];
+
+  const cacheKey = `cmd:${query.toLowerCase()}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached && isCacheValid(cached.timestamp)) {
+    return cached.data;
+  }
+
+  try {
+    const response = await fetch(
+      `${SCRYFALL_API_BASE}/cards/search?q=${encodeURIComponent(`name:${query} is:commander`)}&order=name`,
+      { headers: { "User-Agent": USER_AGENT } }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) return [];
+      console.error(`Scryfall search error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const cards: ScryfallCard[] = data.data || [];
+    searchCache.set(cacheKey, { data: cards, timestamp: Date.now() });
+    return cards;
+  } catch (error) {
+    console.error("Scryfall commander search error:", error);
+    return [];
+  }
 }
 
 export async function getCardImageUrl(cardName: string): Promise<string | null> {

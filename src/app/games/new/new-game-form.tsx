@@ -9,6 +9,7 @@ import {
   getPlaygroupData,
   getPlaygroupDecks,
   getPlaygroupPlayerDecks,
+  getRematchData,
   saveNewDeckFromGame,
   type PlayerSetup,
   type PlaygroupData,
@@ -95,11 +96,33 @@ function NewGameFormInner({ username }: { username: string }) {
           if (data.defaultFormat) {
             setFormat(data.defaultFormat as MtgFormat);
           }
-          // Initialize with two empty player slots
-          setPlayers([
-            createEmptyPlayer("playgroup_member"),
-            createEmptyPlayer("playgroup_member"),
-          ]);
+
+          // Check for rematch - pre-populate players from previous game
+          const rematchId = searchParams.get("rematch");
+          if (rematchId) {
+            const rematchData = await getRematchData(rematchId);
+            if (rematchData) {
+              setFormat(rematchData.format);
+              setPlayers(
+                rematchData.players.map((p) => ({
+                  ...createEmptyPlayer(p.type),
+                  userId: p.userId || undefined,
+                  playgroupPlayerId: p.playgroupPlayerId || undefined,
+                  guestName: p.guestName || "",
+                }))
+              );
+            } else {
+              setPlayers([
+                createEmptyPlayer("playgroup_member"),
+                createEmptyPlayer("playgroup_member"),
+              ]);
+            }
+          } else {
+            setPlayers([
+              createEmptyPlayer("playgroup_member"),
+              createEmptyPlayer("playgroup_member"),
+            ]);
+          }
         } else {
           // Playgroup not found or user not a member
           router.push("/playgroups");

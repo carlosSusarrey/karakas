@@ -173,7 +173,8 @@ export async function removePowerPlay(
 export async function endGame(
   gameId: string,
   winnerId: string | null,
-  isDraw: boolean
+  isDraw: boolean,
+  totalTurns?: number | null
 ): Promise<{ success: true } | { error: string }> {
   const user = await getCurrentUser();
   if (!user) {
@@ -250,11 +251,12 @@ export async function endGame(
       placement++;
     }
 
-    // Update game timestamp
+    // Update game timestamp and total turns
     await db.game.update({
       where: { id: gameId },
       data: {
         playedAt: new Date(),
+        ...(totalTurns != null && { totalTurns }),
       },
     });
 

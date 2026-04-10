@@ -270,6 +270,37 @@ export async function getPlaygroupData(playgroupId: string): Promise<PlaygroupDa
   };
 }
 
+export async function getRematchData(gameId: string) {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const game = await db.game.findUnique({
+    where: { id: gameId },
+    include: {
+      players: {
+        select: {
+          userId: true,
+          playgroupPlayerId: true,
+          guestName: true,
+        },
+      },
+    },
+  });
+
+  if (!game) return null;
+
+  return {
+    format: game.format as MtgFormat,
+    playgroupId: game.playgroupId,
+    players: game.players.map((p) => ({
+      type: (p.userId ? "playgroup_member" : p.playgroupPlayerId ? "playgroup_player" : "guest") as "playgroup_member" | "playgroup_player" | "guest",
+      userId: p.userId,
+      playgroupPlayerId: p.playgroupPlayerId,
+      guestName: p.guestName,
+    })),
+  };
+}
+
 export async function getPlaygroupDecks(playgroupId: string, format?: string): Promise<PlaygroupDeckData[]> {
   const user = await getCurrentUser();
   if (!user) {

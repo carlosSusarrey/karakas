@@ -30,6 +30,7 @@ vi.mock('@/lib/scryfall', () => ({
   getCardByName: vi.fn(),
   getCardImageUrlFromCard: vi.fn(),
   canBeCommander: vi.fn(),
+  searchCommanders: vi.fn(),
 }))
 
 vi.mock('next/navigation', () => ({
@@ -40,7 +41,7 @@ vi.mock('next/navigation', () => ({
 
 import { getCurrentUser } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { autocompleteCards, getCardByName, getCardImageUrlFromCard, canBeCommander } from '@/lib/scryfall'
+import { autocompleteCards, getCardByName, getCardImageUrlFromCard, canBeCommander, searchCommanders } from '@/lib/scryfall'
 import { redirect } from 'next/navigation'
 
 // Import the route handlers
@@ -136,29 +137,30 @@ describe('API Routes', () => {
     })
 
     it('filters to commanders only when commander param is true', async () => {
-      vi.mocked(autocompleteCards).mockResolvedValue([
-        'Atraxa, Praetors\' Voice',
-        'Lightning Bolt',
-        'Kenrith, the Returned King',
-      ])
-
-      vi.mocked(getCardByName).mockImplementation(async (name) => ({
-        id: `card-${name}`,
-        name,
-        type_line: name.includes('Atraxa') || name.includes('Kenrith')
-          ? 'Legendary Creature'
-          : 'Instant',
-        legalities: {},
-        image_uris: {
-          small: `https://example.com/${name}/small.jpg`,
-          normal: `https://example.com/${name}/normal.jpg`,
-          art_crop: `https://example.com/${name}/art.jpg`,
+      vi.mocked(searchCommanders).mockResolvedValue([
+        {
+          id: 'card-atraxa',
+          name: 'Atraxa, Praetors\' Voice',
+          type_line: 'Legendary Creature',
+          legalities: {},
+          image_uris: {
+            small: 'https://example.com/atraxa/small.jpg',
+            normal: 'https://example.com/atraxa/normal.jpg',
+            art_crop: 'https://example.com/atraxa/art.jpg',
+          },
         },
-      }))
-
-      vi.mocked(canBeCommander).mockImplementation((card) =>
-        card.type_line.includes('Legendary')
-      )
+        {
+          id: 'card-kenrith',
+          name: 'Kenrith, the Returned King',
+          type_line: 'Legendary Creature',
+          legalities: {},
+          image_uris: {
+            small: 'https://example.com/kenrith/small.jpg',
+            normal: 'https://example.com/kenrith/normal.jpg',
+            art_crop: 'https://example.com/kenrith/art.jpg',
+          },
+        },
+      ])
 
       vi.mocked(getCardImageUrlFromCard).mockReturnValue('https://example.com/small.jpg')
 
@@ -166,9 +168,51 @@ describe('API Routes', () => {
       const response = await getCardAutocomplete(request)
       const data = await response.json()
 
-      // Only legendary creatures should be included
-      expect(data.suggestions.length).toBeLessThanOrEqual(3)
-      expect(canBeCommander).toHaveBeenCalled()
+      // Only commanders should be included (searchCommanders handles filtering)
+      expect(data.suggestions).toHaveLength(2)
+      expect(searchCommanders).toHaveBeenCalledWith('atr')
+    })
+
+    it('does not call autocompleteCards for commander-only searches', async () => {
+      vi.mocked(searchCommanders).mockResolvedValue([])
+
+      const request = createRequest('http://localhost:3000/api/cards/autocomplete?q=test&commander=true')
+      await getCardAutocomplete(request)
+
+      expect(autocompleteCards).not.toHaveBeenCalled()
+      expect(searchCommanders).toHaveBeenCalledWith('test')
+    })
+
+    it('returns empty suggestions when no commanders match', async () => {
+      vi.mocked(searchCommanders).mockResolvedValue([])
+
+      const request = createRequest('http://localhost:3000/api/cards/autocomplete?q=xyznotacard&commander=true')
+      const response = await getCardAutocomplete(request)
+      const data = await response.json()
+
+      expect(data.suggestions).toEqual([])
+    })
+
+    it('limits commander results to 10', async () => {
+      const manyCards = Array.from({ length: 15 }, (_, i) => ({
+        id: `card-${i}`,
+        name: `Commander ${i + 1}`,
+        type_line: 'Legendary Creature',
+        legalities: {},
+        image_uris: {
+          small: `https://example.com/${i}/small.jpg`,
+          normal: `https://example.com/${i}/normal.jpg`,
+          art_crop: `https://example.com/${i}/art.jpg`,
+        },
+      }))
+      vi.mocked(searchCommanders).mockResolvedValue(manyCards)
+      vi.mocked(getCardImageUrlFromCard).mockReturnValue('https://example.com/small.jpg')
+
+      const request = createRequest('http://localhost:3000/api/cards/autocomplete?q=commander&commander=true')
+      const response = await getCardAutocomplete(request)
+      const data = await response.json()
+
+      expect(data.suggestions).toHaveLength(10)
     })
 
     it('provides fallback when card details cannot be fetched', async () => {

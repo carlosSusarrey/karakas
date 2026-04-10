@@ -11,6 +11,7 @@ import {
   isLegendaryCreature,
   canBeCommander,
   getCardImageUrl,
+  searchCommanders,
   type ScryfallCard,
 } from '@/lib/scryfall'
 
@@ -299,6 +300,101 @@ describe('Scryfall Library', () => {
       }
 
       expect(canBeCommander(card)).toBe(true)
+    })
+  })
+
+  describe('searchCommanders', () => {
+    it('returns empty array for queries shorter than 2 characters', async () => {
+      const result = await searchCommanders('a')
+      expect(result).toEqual([])
+      expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    it('returns commander cards from Scryfall search API', async () => {
+      const mockCards: ScryfallCard[] = [
+        {
+          id: 'card-1',
+          name: 'Atraxa, Praetors\' Voice',
+          type_line: 'Legendary Creature — Phyrexian Angel Horror',
+          legalities: {},
+          image_uris: {
+            small: 'https://example.com/atraxa-small.jpg',
+            normal: 'https://example.com/atraxa-normal.jpg',
+            art_crop: 'https://example.com/atraxa-art.jpg',
+          },
+        },
+        {
+          id: 'card-2',
+          name: 'Atraxa, Grand Unifier',
+          type_line: 'Legendary Creature — Phyrexian Angel',
+          legalities: {},
+          image_uris: {
+            small: 'https://example.com/atraxa2-small.jpg',
+            normal: 'https://example.com/atraxa2-normal.jpg',
+            art_crop: 'https://example.com/atraxa2-art.jpg',
+          },
+        },
+      ]
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ object: 'list', total_cards: 2, has_more: false, data: mockCards }),
+      })
+
+      const result = await searchCommanders('atraxa')
+
+      expect(result).toEqual(mockCards)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('cards/search'),
+        expect.objectContaining({
+          headers: { 'User-Agent': 'Karakas/1.0' },
+        })
+      )
+      // Verify the query includes is:commander
+      const calledUrl = mockFetch.mock.calls[0][0] as string
+      expect(decodeURIComponent(calledUrl)).toContain('is:commander')
+      expect(decodeURIComponent(calledUrl)).toContain('name:atraxa')
+    })
+
+    it('returns empty array when no commanders match (404)', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      })
+
+      const result = await searchCommanders('xyznotacard')
+
+      expect(result).toEqual([])
+    })
+
+    it('returns empty array on API error', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      })
+
+      const result = await searchCommanders('test')
+
+      expect(result).toEqual([])
+    })
+
+    it('returns empty array on network error', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network error'))
+
+      const result = await searchCommanders('test')
+
+      expect(result).toEqual([])
+    })
+
+    it('handles empty data array in response', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ object: 'list', total_cards: 0, has_more: false, data: [] }),
+      })
+
+      const result = await searchCommanders('ab')
+
+      expect(result).toEqual([])
     })
   })
 

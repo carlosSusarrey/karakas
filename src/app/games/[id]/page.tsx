@@ -9,6 +9,7 @@ import {
   type PowerPlayType,
 } from "@/types/mtg";
 import { ShareButton } from "./share-button";
+import { DeleteGameButton } from "./delete-game-button";
 import { Header } from "@/components/header";
 
 export default async function GameDetailPage({
@@ -75,6 +76,18 @@ export default async function GameDetailPage({
   const winner = game.players.find((p) => p.isWinner);
   const isDraw = !winner && game.players.every((p) => p.placement === 1);
   const isCreator = game.createdById === user.id;
+
+  // Check if user is a playgroup member (for delete access)
+  const isPlaygroupMember = game.playgroupId
+    ? (await db.playgroupMember.findUnique({
+        where: {
+          playgroupId_userId: {
+            playgroupId: game.playgroupId,
+            userId: user.id,
+          },
+        },
+      })) !== null
+    : false;
 
   type GamePlayerWithDeck = (typeof game.players)[0];
   type PowerPlayWithPlayer = (typeof game.powerPlays)[0];
@@ -150,6 +163,14 @@ export default async function GameDetailPage({
                 <div className="text-zinc-400 text-sm">{formatDate(game.playedAt)}</div>
               </div>
               <div className="flex items-center gap-4">
+                {game.playgroup && (
+                  <Link
+                    href={`/games/new?playgroup=${game.playgroup.id}&rematch=${id}`}
+                    className="text-amber-500 hover:text-amber-400 text-sm font-medium transition-colors"
+                  >
+                    Play Again
+                  </Link>
+                )}
                 <ShareButton
                   gameId={id}
                   format={FORMAT_LABELS[game.format as MtgFormat]}
@@ -176,6 +197,12 @@ export default async function GameDetailPage({
                   >
                     Edit
                   </Link>
+                )}
+                {(isCreator || isPlaygroupMember) && (
+                  <DeleteGameButton
+                    gameId={id}
+                    redirectTo={game.playgroup ? `/playgroups/${game.playgroup.id}` : "/games"}
+                  />
                 )}
               </div>
             </div>
@@ -268,9 +295,11 @@ export default async function GameDetailPage({
                 {game.powerPlays.map((play) => (
                   <div key={play.id} className="border-l-2 border-amber-500/30 pl-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded">
-                        Turn {play.turn}
-                      </span>
+                      {play.turn > 0 && (
+                        <span className="text-xs bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded">
+                          Turn {play.turn}
+                        </span>
+                      )}
                       <span className="text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">
                         {POWER_PLAY_LABELS[play.type as PowerPlayType]}
                       </span>
@@ -279,9 +308,13 @@ export default async function GameDetailPage({
                       </span>
                     </div>
                     <div className="text-zinc-300">
-                      {play.description}
                       {play.cardName && (
-                        <span className="text-amber-500 ml-1">({play.cardName})</span>
+                        <span className="text-amber-500">{play.cardName}</span>
+                      )}
+                      {play.description && (
+                        <span className="ml-1">
+                          {play.cardName ? `— ${play.description}` : play.description}
+                        </span>
                       )}
                     </div>
                   </div>

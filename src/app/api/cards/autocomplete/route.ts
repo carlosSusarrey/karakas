@@ -3,7 +3,7 @@ import {
   autocompleteCards,
   getCardByName,
   getCardImageUrlFromCard,
-  canBeCommander,
+  searchCommanders,
   type CardSuggestion,
 } from "@/lib/scryfall";
 
@@ -17,32 +17,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    const cardNames = await autocompleteCards(query);
-
-    // Limit to 10 suggestions
-    const limitedNames = cardNames.slice(0, 10);
-
-    // If commander filtering is requested, we need to fetch card details
-    // and filter to only legendary creatures/planeswalkers
+    // Commander search uses Scryfall's is:commander filter directly
     if (commanderOnly) {
-      const suggestions: CardSuggestion[] = [];
-
-      // Fetch card details in parallel (limited batch)
-      const cardPromises = limitedNames.map((name) => getCardByName(name));
-      const cards = await Promise.all(cardPromises);
-
-      for (let i = 0; i < cards.length; i++) {
-        const card = cards[i];
-        if (card && canBeCommander(card)) {
-          suggestions.push({
-            name: card.name,
-            imageUrl: getCardImageUrlFromCard(card),
-          });
-        }
-      }
-
+      const cards = await searchCommanders(query);
+      const suggestions: CardSuggestion[] = cards.slice(0, 10).map((card) => ({
+        name: card.name,
+        imageUrl: getCardImageUrlFromCard(card),
+      }));
       return NextResponse.json({ suggestions });
     }
+
+    const cardNames = await autocompleteCards(query);
+    const limitedNames = cardNames.slice(0, 10);
 
     // For non-commander fields, fetch image URLs for all suggestions
     const suggestions: CardSuggestion[] = [];
