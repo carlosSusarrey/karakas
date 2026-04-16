@@ -32,3 +32,16 @@ export type {
   SuggestedEvent,
   ExtractionContext,
 } from "./types/ai-events";
+
+// API types
+export type {
+  AuthUser,
+  LoginRequest,
+  SignupRequest,
+  AuthResponse,
+  RefreshRequest,
+  RefreshResponse,
+  PlaygroupSummary,
+  DeckSummary,
+  ApiError,
+} from "./types/api";

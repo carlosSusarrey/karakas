@@ -42,6 +42,9 @@ model User {
   // Friend relations
   friendRequestsSent     Friendship[] @relation("FriendRequester")
   friendRequestsReceived Friendship[] @relation("FriendAddressee")
+
+  // Mobile auth
+  refreshTokens RefreshToken[]
 }
 
 model OAuthAccount {
@@ -56,6 +59,16 @@ model OAuthAccount {
 }
 
 model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
   id        String   @id @default(cuid())
   userId    String
   token     String   @unique

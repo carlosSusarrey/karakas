@@ -1,37 +1,74 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 import { useGame } from "../src/contexts/game-context";
+import { useAuth } from "../src/contexts/auth-context";
 import { colors, spacing, fontSize } from "../src/constants/theme";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { hasActiveGame } = useGame();
+  const { isAuthenticated, user, logout } = useAuth();
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Karakas</Text>
-        <Text style={styles.subtitle}>MTG Life Counter</Text>
-      </View>
+    <>
+      <Stack.Screen
+        options={{
+          title: "Karakas",
+          headerRight: () =>
+            isAuthenticated ? (
+              <Pressable onPress={logout}>
+                <Text style={{ color: colors.textSecondary, fontSize: fontSize.md }}>
+                  Logout
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.push("/(auth)/login")}>
+                <Text style={{ color: colors.amber, fontSize: fontSize.md }}>
+                  Sign In
+                </Text>
+              </Pressable>
+            ),
+        }}
+      />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Karakas</Text>
+          <Text style={styles.subtitle}>MTG Life Counter</Text>
+          {isAuthenticated && user && (
+            <Text style={styles.userText}>Signed in as {user.username}</Text>
+          )}
+        </View>
 
-      <View style={styles.actions}>
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => router.push("/game/setup")}
-        >
-          <Text style={styles.primaryButtonText}>New Game</Text>
-        </Pressable>
-
-        {hasActiveGame && (
+        <View style={styles.actions}>
           <Pressable
-            style={styles.secondaryButton}
-            onPress={() => router.push("/game/play")}
+            style={styles.primaryButton}
+            onPress={() => router.push("/game/setup")}
           >
-            <Text style={styles.secondaryButtonText}>Resume Game</Text>
+            <Text style={styles.primaryButtonText}>New Game</Text>
           </Pressable>
-        )}
+
+          {hasActiveGame && (
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push("/game/play")}
+            >
+              <Text style={styles.secondaryButtonText}>Resume Game</Text>
+            </Pressable>
+          )}
+
+          {!isAuthenticated && (
+            <Pressable
+              style={styles.outlineButton}
+              onPress={() => router.push("/(auth)/login")}
+            >
+              <Text style={styles.outlineButtonText}>
+                Sign in to sync games
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </View>
-    </View>
+    </>
   );
 }
 
@@ -57,6 +94,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     color: colors.textSecondary,
     marginTop: spacing.sm,
+  },
+  userText: {
+    fontSize: fontSize.md,
+    color: colors.textMuted,
+    marginTop: spacing.xs,
   },
   actions: {
     width: "100%",
@@ -87,5 +129,17 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     fontWeight: "bold",
     color: colors.amber,
+  },
+  outlineButton: {
+    borderColor: colors.border,
+    borderWidth: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  outlineButtonText: {
+    fontSize: fontSize.md,
+    color: colors.textSecondary,
   },
 });
