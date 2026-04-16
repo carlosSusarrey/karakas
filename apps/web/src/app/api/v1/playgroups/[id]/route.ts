@@ -53,3 +53,51 @@ export async function GET(
 
   return NextResponse.json({ playgroup });
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const userId = await requireAuth(request);
+  if (userId instanceof NextResponse) return userId;
+
+  const { id } = await params;
+
+  const membership = await db.playgroupMember.findUnique({
+    where: { playgroupId_userId: { playgroupId: id, userId } },
+  });
+
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
+  const body = await request.json();
+  const updated = await db.playgroup.update({
+    where: { id },
+    data: {
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.description !== undefined ? { description: body.description } : {}),
+      ...(body.defaultFormat !== undefined ? { defaultFormat: body.defaultFormat } : {}),
+    },
+  });
+
+  return NextResponse.json({ playgroup: updated });
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const userId = await requireAuth(request);
+  if (userId instanceof NextResponse) return userId;
+
+  const { id } = await params;
+
+  const playgroup = await db.playgroup.findUnique({ where: { id } });
+  if (!playgroup || playgroup.ownerId !== userId) {
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  }
+
+  await db.playgroup.delete({ where: { id } });
+  return NextResponse.json({ success: true });
+}

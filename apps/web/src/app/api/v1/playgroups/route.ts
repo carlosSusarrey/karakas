@@ -30,3 +30,32 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ playgroups });
 }
+
+export async function POST(request: NextRequest) {
+  const userId = await requireAuth(request);
+  if (userId instanceof NextResponse) return userId;
+
+  try {
+    const { name, description, defaultFormat } = await request.json();
+
+    if (!name?.trim()) {
+      return NextResponse.json({ error: "Name is required." }, { status: 400 });
+    }
+
+    const playgroup = await db.playgroup.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+        defaultFormat: defaultFormat || null,
+        ownerId: userId,
+        members: {
+          create: { userId, role: "owner" },
+        },
+      },
+    });
+
+    return NextResponse.json({ playgroup }, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "Failed to create playgroup" }, { status: 500 });
+  }
+}
