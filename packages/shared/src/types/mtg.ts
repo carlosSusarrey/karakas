@@ -38,6 +38,21 @@ export const FORMAT_LABELS: Record<MtgFormat, string> = {
   timeless: "Timeless",
 };
 
+// Starting life totals per format
+export const STARTING_LIFE: Partial<Record<MtgFormat, number>> = {
+  commander: 40,
+  brawl: 25,
+  oathbreaker: 20,
+};
+
+export const DEFAULT_STARTING_LIFE = 20;
+
+// Commander damage threshold
+export const COMMANDER_DAMAGE_THRESHOLD = 21;
+
+// Poison counter threshold
+export const POISON_THRESHOLD = 10;
+
 // Formats that use commanders
 export const COMMANDER_FORMATS: MtgFormat[] = [
   "commander",
@@ -100,4 +115,8 @@ export function isCommanderFormat(format: string): boolean {
 
 export function hasBrackets(format: string): boolean {
   return BRACKET_FORMATS.includes(format as MtgFormat);
+}
+
+export function getStartingLife(format: string): number {
+  return STARTING_LIFE[format as MtgFormat] ?? DEFAULT_STARTING_LIFE;
 }

@@ -4,18 +4,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Karakas is an MTG (Magic: The Gathering) game tracking website where users can log games, manage decks, and view statistics about their playgroup.
+Karakas is an MTG (Magic: The Gathering) game tracking platform with a web app and mobile app (life counter + full game management).
+
+## Monorepo Structure
+
+This is an npm workspaces monorepo:
+
+```
+karakas/
+├── apps/
+│   ├── web/              — Next.js web app
+│   └── mobile/           — Expo (React Native) mobile app
+├── packages/
+│   └── shared/           — Shared types, constants, utilities (@karakas/shared)
+├── package.json          — Root workspace config
+└── CLAUDE.md
+```
 
 ## Commands
 
+All commands can be run from the repo root (they proxy to the correct workspace):
+
 ```bash
-# Development
-npm run dev           # Start development server at http://localhost:3000
+# Web Development
+npm run dev           # Start web dev server at http://localhost:3000
 npm run build         # Runs prisma generate && next build
 npm run start         # Run production server
 npm run lint          # Run ESLint
 
-# Database
+# Mobile Development
+npm run mobile        # Start Expo dev server
+npm run mobile:ios    # Start Expo for iOS
+npm run mobile:android # Start Expo for Android
+
+# Database (runs in apps/web context)
 npm run db:migrate    # Run Prisma migrations (npx prisma migrate dev)
 npm run db:push       # Push schema changes to database (npx prisma db push)
 npm run db:studio     # Open Prisma Studio GUI (npx prisma studio)
@@ -28,25 +50,25 @@ npm run test:coverage # Run tests with coverage report
 npm run test:e2e      # Run Playwright E2E tests
 npm run test:e2e:ui   # Run E2E tests with Playwright UI
 
-# Run a single test file
+# Run a single test file (from apps/web/)
 npx vitest run src/path/to/test.test.ts
 ```
 
-## Architecture
+## Web App Architecture (apps/web/)
 
 **Stack:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS 4
 
 **Structure:**
-- `src/app/` - Next.js App Router pages and layouts
-- `src/app/**/actions.ts` - Server Actions for form submissions and mutations
-- `src/components/` - Shared React components (Header, CommanderImage, CardAutocomplete)
-- `src/lib/` - Shared utilities (db client, auth, session, scryfall, oauth, password-reset)
-- `src/types/` - TypeScript type definitions (MTG formats, power plays)
-- `src/generated/prisma/` - Generated Prisma client (gitignored)
-- `prisma/` - Database schema and migrations
-- `@/*` path alias maps to `./src/*`
+- `apps/web/src/app/` - Next.js App Router pages and layouts
+- `apps/web/src/app/**/actions.ts` - Server Actions for form submissions and mutations
+- `apps/web/src/components/` - Shared React components (Header, CommanderImage, CardAutocomplete)
+- `apps/web/src/lib/` - Shared utilities (db client, auth, session, scryfall, oauth, password-reset)
+- `apps/web/src/types/` - TypeScript type definitions (re-exports from @karakas/shared)
+- `apps/web/src/generated/prisma/` - Generated Prisma client (gitignored)
+- `apps/web/prisma/` - Database schema and migrations
+- `@/*` path alias maps to `./src/*` (within apps/web)
 
-**Database:** Turso (libsql) with Prisma 7 ORM via `@prisma/adapter-libsql`. Singleton client in `src/lib/db.ts`.
+**Database:** Turso (libsql) with Prisma 7 ORM via `@prisma/adapter-libsql`. Singleton client in `apps/web/src/lib/db.ts`.
 
 **Key Models:**
 - User, OAuthAccount, PasswordResetToken - Authentication
@@ -65,20 +87,32 @@ npx vitest run src/path/to/test.test.ts
 - No middleware — all auth checks happen in server components and server actions
 - Scryfall API integration in `src/lib/scryfall.ts` with 5-minute in-memory cache
 
-**TypeScript:** Strict mode enabled. Target ES2017.
+## Mobile App Architecture (apps/mobile/)
 
-**MTG Types:** See `src/types/mtg.ts` for formats, brackets, and power play types.
+**Stack:** Expo SDK 54 + React Native + TypeScript + Expo Router
+
+**Primary feature:** Life counter for MTG games that syncs results to the server.
+
+## Shared Package (packages/shared/)
+
+**Purpose:** Types, constants, and utilities shared between web and mobile apps.
+- MTG formats, brackets, power play types (`@karakas/shared`)
+- AI event types (SuggestedEvent, ExtractionContext)
+- Game constants (starting life totals, commander damage threshold, poison threshold)
+- Import as `@karakas/shared` from either app
+
+**MTG Types:** See `packages/shared/src/types/mtg.ts` for formats, brackets, power play types, and game constants.
 
 ## Authentication
 
-**Password auth:** bcryptjs (12 rounds) via `src/lib/auth.ts`
+**Password auth:** bcryptjs (12 rounds) via `apps/web/src/lib/auth.ts`
 
-**OAuth:** Google, Discord, Apple via Arctic library (`src/lib/oauth.ts`). All providers are optional — configured only when env vars are present.
+**OAuth:** Google, Discord, Apple via Arctic library (`apps/web/src/lib/oauth.ts`). All providers are optional — configured only when env vars are present.
 - Flow: `GET /auth/[provider]` → OAuth provider → `GET /auth/[provider]/callback` → `findOrCreateUser()` → session
 - Google/Discord use PKCE; Apple decodes JWT from ID token
 - OAuth links to existing users by email if account doesn't exist yet
 
-**Password reset:** Token-based via `src/lib/password-reset.ts`, sends emails with Resend. In dev mode without `RESEND_API_KEY`, logs reset URL to console.
+**Password reset:** Token-based via `apps/web/src/lib/password-reset.ts`, sends emails with Resend. In dev mode without `RESEND_API_KEY`, logs reset URL to console.
 
 ## API Routes
 
@@ -87,6 +121,8 @@ npx vitest run src/path/to/test.test.ts
 - `GET /api/playgroups/[id]` — Playgroup details
 
 ## Environment Variables
+
+Stored in `apps/web/.env` and `apps/web/.env.local`:
 
 ```
 # Database (required)
@@ -111,11 +147,13 @@ FROM_EMAIL                   # Default: "Karakas <noreply@karakas.app>"
 **Framework:** Vitest (unit/integration) + Playwright (E2E)
 
 **Test structure:**
-- `src/__tests__/` - Unit tests for lib utilities
-- `src/app/*/__tests__/` - Integration tests for routes/actions
-- `src/components/__tests__/` - Component tests
-- `tests/e2e/` - End-to-end tests
+- `apps/web/src/__tests__/` - Unit tests for lib utilities
+- `apps/web/src/app/*/__tests__/` - Integration tests for routes/actions
+- `apps/web/src/components/__tests__/` - Component tests
+- `apps/web/tests/e2e/` - End-to-end tests
 
 **Running tests:**
 - Always run `npm run test` before committing
 - Run `npm run test:e2e` for full user flow validation
+
+**TypeScript:** Strict mode enabled. Target ES2017.

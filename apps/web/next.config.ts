@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  transpilePackages: ["@karakas/shared"],
 };
 
 export default nextConfig;
