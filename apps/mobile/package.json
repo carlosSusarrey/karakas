@@ -1,7 +1,7 @@
 {
   "name": "@karakas/mobile",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -10,10 +10,22 @@
   },
   "dependencies": {
     "@karakas/shared": "*",
+    "@react-native-async-storage/async-storage": "^3.0.2",
     "expo": "~54.0.33",
+    "expo-constants": "^55.0.14",
+    "expo-haptics": "^55.0.14",
+    "expo-keep-awake": "^15.0.8",
+    "expo-linking": "^55.0.13",
+    "expo-router": "^55.0.12",
+    "expo-splash-screen": "^55.0.18",
     "expo-status-bar": "~3.0.9",
+    "expo-system-ui": "^55.0.15",
     "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "react-native-gesture-handler": "^2.31.1",
+    "react-native-reanimated": "^4.3.0",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-screens": "^4.24.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
