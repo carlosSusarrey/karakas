@@ -181,8 +181,11 @@ export default function PlayScreen() {
             </Text>
           </Pressable>
 
-          <Pressable style={styles.controlButton} onPress={handleNewGame}>
-            <Text style={styles.controlButtonText}>✕</Text>
+          <Pressable
+            style={styles.endGameButton}
+            onPress={() => router.push("/game/end")}
+          >
+            <Text style={styles.endGameButtonText}>End</Text>
           </Pressable>
 
           <Pressable
@@ -254,6 +257,21 @@ const styles = StyleSheet.create({
   controlButtonText: {
     fontSize: fontSize.xl,
     color: colors.text,
+  },
+  endGameButton: {
+    paddingHorizontal: spacing.md,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.red + "33",
+    borderWidth: 1,
+    borderColor: colors.red,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  endGameButtonText: {
+    fontSize: fontSize.md,
+    fontWeight: "bold",
+    color: colors.red,
   },
   turnButton: {
     flex: 1,
