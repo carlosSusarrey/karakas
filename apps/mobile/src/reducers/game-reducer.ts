@@ -19,6 +19,13 @@ export type PlayerState = {
   hasInitiative: boolean;
   isEliminated: boolean;
   eliminatedTurn: number | null;
+  // Server-side metadata (for syncing)
+  serverUserId?: string;
+  serverPlaygroupPlayerId?: string;
+  serverDeckId?: string;
+  commanderUsed1?: string;
+  commanderUsed2?: string;
+  bracketUsed?: number;
 };
 
 export type LocalPowerPlay = {
@@ -41,6 +48,7 @@ export type GameState = {
   gameStartedAt: string; // ISO string for serialization
   powerPlays: LocalPowerPlay[];
   serverId: string | null;
+  playgroupId: string | null;
 };
 
 // --- Actions ---
@@ -71,7 +79,17 @@ export function generateId(): string {
   return `${Date.now()}-${++_idCounter}`;
 }
 
-export function createPlayer(name: string, startingLife: number): PlayerState {
+export type PlayerSetupData = {
+  name: string;
+  userId?: string;
+  playgroupPlayerId?: string;
+  deckId?: string;
+  commanderUsed1?: string;
+  commanderUsed2?: string;
+  bracketUsed?: number;
+};
+
+export function createPlayer(name: string, startingLife: number, setup?: Partial<PlayerSetupData>): PlayerState {
   return {
     id: generateId(),
     name,
@@ -84,16 +102,23 @@ export function createPlayer(name: string, startingLife: number): PlayerState {
     hasInitiative: false,
     isEliminated: false,
     eliminatedTurn: null,
+    serverUserId: setup?.userId,
+    serverPlaygroupPlayerId: setup?.playgroupPlayerId,
+    serverDeckId: setup?.deckId,
+    commanderUsed1: setup?.commanderUsed1,
+    commanderUsed2: setup?.commanderUsed2,
+    bracketUsed: setup?.bracketUsed,
   };
 }
 
 export function createInitialState(
   format: string,
-  playerNames: string[]
+  playerData: PlayerSetupData[],
+  playgroupId?: string | null
 ): GameState {
   const startingLife = getStartingLife(format);
   return {
-    players: playerNames.map((name) => createPlayer(name, startingLife)),
+    players: playerData.map((p) => createPlayer(p.name, startingLife, p)),
     currentTurn: 1,
     activePlayerIndex: 0,
     format,
@@ -103,6 +128,7 @@ export function createInitialState(
     gameStartedAt: new Date().toISOString(),
     powerPlays: [],
     serverId: null,
+    playgroupId: playgroupId ?? null,
   };
 }
 
@@ -275,7 +301,16 @@ function applyAction(state: GameState, action: GameAction): GameState {
     case "RESET_GAME": {
       return createInitialState(
         state.format,
-        state.players.map((p) => p.name)
+        state.players.map((p) => ({
+          name: p.name,
+          userId: p.serverUserId,
+          playgroupPlayerId: p.serverPlaygroupPlayerId,
+          deckId: p.serverDeckId,
+          commanderUsed1: p.commanderUsed1,
+          commanderUsed2: p.commanderUsed2,
+          bracketUsed: p.bracketUsed,
+        })),
+        state.playgroupId
       );
     }
 
@@ -304,16 +339,18 @@ const RECORDABLE_ACTIONS = new Set([
 export function gameReducer(state: GameState, action: GameAction): GameState {
   if (action.type === "UNDO") {
     if (state.historyIndex < 0) return state;
-    // Replay all actions except the last one
-    let replayed = createInitialState(
-      state.format,
-      state.players.map((p) => p.name)
-    );
-    // Rebuild with same player IDs
-    replayed = { ...replayed, players: state.history.length > 0 ? replayed.players : state.players };
+    const playerData = state.players.map((p) => ({
+      name: p.name,
+      userId: p.serverUserId,
+      playgroupPlayerId: p.serverPlaygroupPlayerId,
+      deckId: p.serverDeckId,
+      commanderUsed1: p.commanderUsed1,
+      commanderUsed2: p.commanderUsed2,
+      bracketUsed: p.bracketUsed,
+    }));
 
     // Re-create with the original player state
-    const initialState = createInitialState(state.format, state.players.map((p) => p.name));
+    const initialState = createInitialState(state.format, playerData, state.playgroupId);
     // We need to preserve original player IDs, so let's reconstruct differently
     let result: GameState = {
       ...initialState,

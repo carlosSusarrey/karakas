@@ -41,13 +41,20 @@ export default function EndGameScreen() {
 
     setSaving(true);
     try {
-      // Create game on server
-      const { game } = await apiFetch<{ game: { id: string } }>("/api/v1/games", {
+      // Create game on server with proper player linkage
+      const { game } = await apiFetch<{ game: { id: string; players: { id: string }[] } }>("/api/v1/games", {
         method: "POST",
         body: JSON.stringify({
           format: state.format,
+          playgroupId: state.playgroupId,
           players: state.players.map((p) => ({
-            guestName: p.name,
+            userId: p.serverUserId || undefined,
+            playgroupPlayerId: p.serverPlaygroupPlayerId || undefined,
+            deckId: p.serverDeckId || undefined,
+            guestName: (!p.serverUserId && !p.serverPlaygroupPlayerId) ? p.name : undefined,
+            commanderUsed1: p.commanderUsed1 || undefined,
+            commanderUsed2: p.commanderUsed2 || undefined,
+            bracketUsed: p.bracketUsed || undefined,
           })),
         }),
       });

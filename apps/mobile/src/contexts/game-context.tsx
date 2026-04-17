@@ -5,6 +5,7 @@ import {
   GameAction,
   gameReducer,
   createInitialState,
+  PlayerSetupData,
 } from "../reducers/game-reducer";
 
 const STORAGE_KEY = "karakas_active_game";
@@ -12,7 +13,7 @@ const STORAGE_KEY = "karakas_active_game";
 type GameContextType = {
   state: GameState;
   dispatch: React.Dispatch<GameAction>;
-  startNewGame: (format: string, playerNames: string[]) => void;
+  startNewGame: (format: string, players: PlayerSetupData[], playgroupId?: string | null) => void;
   hasActiveGame: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -23,7 +24,7 @@ const GameContext = createContext<GameContextType | null>(null);
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(
     gameReducer,
-    createInitialState("commander", ["Player 1", "Player 2"])
+    createInitialState("commander", [{ name: "Player 1" }, { name: "Player 2" }])
   );
   const [hasActiveGame, setHasActiveGame] = React.useState(false);
   const isRestoredRef = useRef(false);
@@ -63,8 +64,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, [state, hasActiveGame]);
 
   const startNewGame = useCallback(
-    (format: string, playerNames: string[]) => {
-      const initial = createInitialState(format, playerNames);
+    (format: string, players: PlayerSetupData[], playgroupId?: string | null) => {
+      const initial = createInitialState(format, players, playgroupId);
       dispatch({ type: "RESTORE_STATE", state: initial });
       setHasActiveGame(true);
     },
