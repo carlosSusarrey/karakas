@@ -14,6 +14,7 @@ type GameContextType = {
   state: GameState;
   dispatch: React.Dispatch<GameAction>;
   startNewGame: (format: string, players: PlayerSetupData[], playgroupId?: string | null) => void;
+  endActiveGame: () => void;
   hasActiveGame: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -50,7 +51,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isRestoredRef.current) return;
     if (hasActiveGame) {
-      // Persist without history to keep storage small
       const toPersist: GameState = {
         ...state,
         history: state.history.slice(
@@ -72,12 +72,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const endActiveGame = useCallback(() => {
+    setHasActiveGame(false);
+    AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+  }, []);
+
   const canUndo = state.historyIndex >= 0;
   const canRedo = state.historyIndex < state.history.length - 1;
 
   return (
     <GameContext.Provider
-      value={{ state, dispatch, startNewGame, hasActiveGame, canUndo, canRedo }}
+      value={{ state, dispatch, startNewGame, endActiveGame, hasActiveGame, canUndo, canRedo }}
     >
       {children}
     </GameContext.Provider>

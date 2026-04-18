@@ -16,7 +16,7 @@ import { colors, spacing, fontSize } from "../../src/constants/theme";
 
 export default function EndGameScreen() {
   const router = useRouter();
-  const { state } = useGame();
+  const { state, endActiveGame } = useGame();
   const { isAuthenticated } = useAuth();
   const [winnerId, setWinnerId] = useState<string | null>(null);
   const [isDraw, setIsDraw] = useState(false);
@@ -35,6 +35,7 @@ export default function EndGameScreen() {
 
     if (!isAuthenticated) {
       Alert.alert("Game Complete", "Sign in to save game results to your account.");
+      endActiveGame();
       router.replace("/");
       return;
     }
@@ -59,16 +60,26 @@ export default function EndGameScreen() {
         }),
       });
 
+      // Map local winnerId to server gamePlayerId
+      let serverWinnerId: string | null = null;
+      if (!isDraw && winnerId) {
+        const winnerIndex = state.players.findIndex((p) => p.id === winnerId);
+        if (winnerIndex >= 0 && game.players[winnerIndex]) {
+          serverWinnerId = game.players[winnerIndex].id;
+        }
+      }
+
       // End the game
       await apiFetch(`/api/v1/games/${game.id}/end`, {
         method: "POST",
         body: JSON.stringify({
-          winnerId: isDraw ? null : winnerId,
+          winnerId: serverWinnerId,
           isDraw,
           totalTurns: state.currentTurn,
         }),
       });
 
+      endActiveGame();
       Alert.alert("Game Saved", "Your game has been recorded.", [
         { text: "OK", onPress: () => router.replace("/") },
       ]);
