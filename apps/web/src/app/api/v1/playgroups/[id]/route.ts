@@ -29,7 +29,16 @@ export async function GET(
       members: {
         include: {
           user: {
-            select: { id: true, username: true, email: true, avatarUrl: true },
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              avatarUrl: true,
+              decks: {
+                where: { isActive: true },
+                select: { id: true, name: true, format: true, commander1: true, commander2: true, bracket: true },
+              },
+            },
           },
         },
       },

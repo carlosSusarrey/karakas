@@ -27,7 +27,13 @@ type Playgroup = {
 type PlaygroupMember = {
   id: string;
   role: string;
-  user: { id: string; username: string; email: string; avatarUrl: string | null };
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    avatarUrl: string | null;
+    decks: { id: string; name: string; format: string; commander1: string | null; commander2: string | null; bracket: number | null }[];
+  };
 };
 
 type PlaygroupPlayer = {
@@ -128,9 +134,10 @@ export default function GameSetupScreen() {
   }, [isAuthenticated]);
 
   const addMemberAsPlayer = (member: PlaygroupMember) => {
-    const memberDecks = userDecks.filter(
-      (d) => d.format === format || !format
-    );
+    const memberDecks = (member.user.decks ?? []).map((d) => ({
+      ...d,
+      decklistUrl: null,
+    }));
     setPlayerSlots((prev) => [
       ...prev,
       {

@@ -69,10 +69,14 @@ function PlayerPanelInner({
     ([, v]) => v > 0
   );
 
-  // Special border for monarch/initiative
-  const monarchBorderColor = player.isMonarch ? "#fbbf24" : undefined;
-  const initiativeBorderColor = player.hasInitiative ? "#60a5fa" : undefined;
-  const specialBorder = monarchBorderColor ?? initiativeBorderColor;
+  // Golden border for monarch, blue for initiative
+  const specialBorder = player.isMonarch
+    ? "#fbbf24"
+    : player.hasInitiative
+      ? "#60a5fa"
+      : undefined;
+
+  const iconSize = compact ? 20 : 26;
 
   return (
     <Pressable onPress={onPress} style={{ flex: 1 }}>
@@ -86,19 +90,17 @@ function PlayerPanelInner({
           rotated && styles.rotated,
         ]}
       >
-        {/* Monarch crown indicator */}
+        {/* Monarch icon — top left */}
         {player.isMonarch && (
-          <View style={styles.monarchBadge}>
-            <Ionicons name="shield" size={compact ? 18 : 22} color="#fbbf24" />
-            <Text style={styles.monarchText}>MONARCH</Text>
+          <View style={styles.monarchIcon}>
+            <Ionicons name="shield" size={iconSize} color="#fbbf24" />
           </View>
         )}
 
-        {/* Initiative indicator */}
+        {/* Initiative icon — top right */}
         {player.hasInitiative && (
-          <View style={styles.initiativeBadge}>
-            <Ionicons name="flash" size={compact ? 18 : 22} color="#60a5fa" />
-            <Text style={styles.initiativeText}>INITIATIVE</Text>
+          <View style={styles.initiativeIcon}>
+            <Ionicons name="flash" size={iconSize} color="#60a5fa" />
           </View>
         )}
 
@@ -107,7 +109,6 @@ function PlayerPanelInner({
           style={[
             styles.playerName,
             player.isEliminated && styles.eliminatedText,
-            (player.isMonarch || player.hasInitiative) && { top: compact ? 28 : 32 },
           ]}
         >
           {player.name}
@@ -205,42 +206,24 @@ const styles = StyleSheet.create({
   rotated: {
     transform: [{ rotate: "180deg" }],
   },
-  // Monarch / Initiative indicators
-  monarchBadge: {
+  // Monarch / Initiative icons — positioned in opposite corners so they never overlap
+  monarchIcon: {
     position: "absolute",
-    top: spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(251, 191, 36, 0.25)",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 12,
+    top: spacing.sm,
+    left: spacing.sm,
+    backgroundColor: "rgba(251, 191, 36, 0.3)",
+    borderRadius: 14,
+    padding: 4,
     zIndex: 10,
   },
-  monarchText: {
-    color: "#fbbf24",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
-  initiativeBadge: {
+  initiativeIcon: {
     position: "absolute",
-    top: spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(96, 165, 250, 0.25)",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 12,
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: "rgba(96, 165, 250, 0.3)",
+    borderRadius: 14,
+    padding: 4,
     zIndex: 10,
-  },
-  initiativeText: {
-    color: "#60a5fa",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 1,
   },
   playerName: {
     fontSize: fontSize.lg,
