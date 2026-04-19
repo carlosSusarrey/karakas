@@ -2,6 +2,7 @@ import React, { useCallback, useRef } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { PlayerState } from "../reducers/game-reducer";
 import { colors, spacing, fontSize } from "../constants/theme";
 
@@ -93,14 +94,14 @@ function PlayerPanelInner({
         {/* Monarch icon — top left */}
         {player.isMonarch && (
           <View style={styles.monarchIcon}>
-            <Ionicons name="shield" size={iconSize} color="#fbbf24" />
+            <MaterialCommunityIcons name="crown" size={iconSize} color="#fbbf24" />
           </View>
         )}
 
         {/* Initiative icon — top right */}
         {player.hasInitiative && (
           <View style={styles.initiativeIcon}>
-            <Ionicons name="flash" size={iconSize} color="#60a5fa" />
+            <MaterialCommunityIcons name="sword-cross" size={iconSize} color="#60a5fa" />
           </View>
         )}
 

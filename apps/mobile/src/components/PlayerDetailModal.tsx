@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { isCommanderFormat } from "@karakas/shared";
 import { PlayerState, GameAction } from "../reducers/game-reducer";
 import { colors, spacing, fontSize } from "../constants/theme";
@@ -141,9 +142,12 @@ export function PlayerDetailModal({
                     }
                   }}
                 >
-                  <Text style={styles.designationText}>
-                    👑 Monarch {player.isMonarch ? "✓" : ""}
-                  </Text>
+                  <View style={styles.designationContent}>
+                    <MaterialCommunityIcons name="crown" size={20} color={player.isMonarch ? "#fbbf24" : colors.textMuted} />
+                    <Text style={styles.designationText}>
+                      Monarch {player.isMonarch ? "✓" : ""}
+                    </Text>
+                  </View>
                 </Pressable>
                 <Pressable
                   style={[
@@ -159,9 +163,12 @@ export function PlayerDetailModal({
                     }
                   }}
                 >
-                  <Text style={styles.designationText}>
-                    ⚔ Initiative {player.hasInitiative ? "✓" : ""}
-                  </Text>
+                  <View style={styles.designationContent}>
+                    <MaterialCommunityIcons name="sword-cross" size={20} color={player.hasInitiative ? "#60a5fa" : colors.textMuted} />
+                    <Text style={styles.designationText}>
+                      Initiative {player.hasInitiative ? "✓" : ""}
+                    </Text>
+                  </View>
                 </Pressable>
               </View>
             </View>
@@ -331,6 +338,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.amberDark + "44",
     borderWidth: 1,
     borderColor: colors.amber,
+  },
+  designationContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   designationText: {
     fontSize: fontSize.md,
