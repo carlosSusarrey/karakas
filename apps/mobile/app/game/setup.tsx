@@ -66,6 +66,117 @@ type PlayerSlot = {
   source: "member" | "player" | "guest";
 };
 
+function DeckPicker({
+  slot,
+  format,
+  allGroupDecks,
+  onSelect,
+  onClear,
+}: {
+  slot: PlayerSlot;
+  format: string;
+  allGroupDecks: (Deck & { ownerName: string })[];
+  onSelect: (deck: Deck) => void;
+  onClear: () => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+
+  // Find selected deck from either own decks or all group decks
+  const selectedDeck = slot.deckId
+    ? slot.availableDecks.find((d) => d.id === slot.deckId)
+      ?? allGroupDecks.find((d) => d.id === slot.deckId)
+    : null;
+
+  const ownDecks = slot.availableDecks.filter((d) => d.format === format);
+  const otherDecks = allGroupDecks
+    .filter((d) => d.format === format && !slot.availableDecks.some((od) => od.id === d.id));
+
+  if (slot.deckId && selectedDeck) {
+    const owner = allGroupDecks.find((d) => d.id === slot.deckId);
+    return (
+      <View style={deckStyles.section}>
+        <View style={deckStyles.selected}>
+          <View style={{ flex: 1 }}>
+            <Text style={deckStyles.name}>{selectedDeck.name}</Text>
+            {slot.commanderUsed1 && <Text style={deckStyles.cmd}>{slot.commanderUsed1}</Text>}
+            {owner && !slot.availableDecks.some((d) => d.id === slot.deckId) && (
+              <Text style={deckStyles.borrowed}>Borrowed from {owner.ownerName}</Text>
+            )}
+          </View>
+          <Pressable onPress={onClear}>
+            <Text style={deckStyles.change}>Change</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={deckStyles.section}>
+      {/* Own decks */}
+      {ownDecks.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={deckStyles.list}>
+            {ownDecks.map((deck) => (
+              <Pressable key={deck.id} style={deckStyles.chip} onPress={() => onSelect(deck)}>
+                <Text style={deckStyles.chipName}>{deck.name}</Text>
+                {deck.commander1 && <Text style={deckStyles.chipCmd} numberOfLines={1}>{deck.commander1}</Text>}
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Browse all toggle */}
+      {otherDecks.length > 0 && (
+        <>
+          <Pressable onPress={() => setShowAll(!showAll)} style={deckStyles.browseToggle}>
+            <Text style={deckStyles.browseText}>
+              {showAll ? "Hide other decks" : `Browse all group decks (${otherDecks.length})`}
+            </Text>
+          </Pressable>
+          {showAll && (
+            <View style={deckStyles.allList}>
+              {otherDecks.map((deck) => (
+                <Pressable key={deck.id} style={deckStyles.allChip} onPress={() => onSelect(deck)}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={deckStyles.chipName}>{deck.name}</Text>
+                    {deck.commander1 && <Text style={deckStyles.chipCmd}>{deck.commander1}</Text>}
+                  </View>
+                  <Text style={deckStyles.owner}>{deck.ownerName}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </>
+      )}
+
+      {ownDecks.length === 0 && otherDecks.length === 0 && (
+        <Text style={deckStyles.none}>No {FORMAT_LABELS[format as keyof typeof FORMAT_LABELS] ?? format} decks</Text>
+      )}
+    </View>
+  );
+}
+
+const deckStyles = StyleSheet.create({
+  section: { marginTop: spacing.sm, marginLeft: spacing.xl },
+  selected: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  name: { fontSize: fontSize.md, color: colors.amber, fontWeight: "600" },
+  cmd: { fontSize: fontSize.sm, color: colors.textMuted },
+  borrowed: { fontSize: fontSize.sm, color: colors.blue, fontStyle: "italic" },
+  change: { fontSize: fontSize.sm, color: colors.textSecondary },
+  list: { flexDirection: "row", gap: spacing.sm },
+  chip: { backgroundColor: colors.surfaceLight, borderRadius: 6, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, maxWidth: 140 },
+  chipName: { fontSize: fontSize.sm, color: colors.text, fontWeight: "600" },
+  chipCmd: { fontSize: 11, color: colors.textMuted },
+  browseToggle: { marginTop: spacing.xs, paddingVertical: spacing.xs },
+  browseText: { fontSize: fontSize.sm, color: colors.amber },
+  allList: { marginTop: spacing.xs, gap: spacing.xs },
+  allChip: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceLight, borderRadius: 6, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
+  owner: { fontSize: 11, color: colors.textMuted, fontStyle: "italic" },
+  none: { fontSize: fontSize.sm, color: colors.textMuted, fontStyle: "italic" },
+});
+
 export default function GameSetupScreen() {
   const router = useRouter();
   const { startNewGame } = useGame();
@@ -216,6 +327,22 @@ export default function GameSetupScreen() {
       )
     );
   };
+
+  // Collect ALL decks from all members + playgroup players for the "browse all" option
+  const allGroupDecks: (Deck & { ownerName: string })[] = (() => {
+    const decks: (Deck & { ownerName: string })[] = [];
+    for (const m of members) {
+      for (const d of m.user.decks ?? []) {
+        decks.push({ id: d.id, name: d.name, format: d.format, commander1: d.commander1, commander2: d.commander2, bracket: d.bracket, ownerName: m.user.username });
+      }
+    }
+    for (const pp of playgroupPlayers) {
+      for (const d of pp.decks) {
+        decks.push({ id: d.id, name: d.name, format: d.format, commander1: d.commander1, commander2: d.commander2, bracket: null, ownerName: pp.linkedUser?.username ?? pp.name });
+      }
+    }
+    return decks;
+  })();
 
   // Players already added (to filter from available list)
   const addedUserIds = new Set(playerSlots.map((p) => p.userId).filter(Boolean));
@@ -377,46 +504,14 @@ export default function GameSetupScreen() {
               </View>
 
               {/* Deck selection */}
-              {slot.availableDecks.length > 0 && (
-                <View style={styles.deckSection}>
-                  {slot.deckId ? (
-                    <View style={styles.selectedDeck}>
-                      <Text style={styles.deckName}>
-                        {slot.availableDecks.find((d) => d.id === slot.deckId)?.name ?? "Deck"}
-                      </Text>
-                      {slot.commanderUsed1 && (
-                        <Text style={styles.deckCommander}>{slot.commanderUsed1}</Text>
-                      )}
-                      <Pressable onPress={() => clearDeck(slot.key)}>
-                        <Text style={styles.changeDeckText}>Change</Text>
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={styles.deckList}>
-                        {slot.availableDecks
-                          .filter((d) => d.format === format)
-                          .map((deck) => (
-                            <Pressable
-                              key={deck.id}
-                              style={styles.deckChip}
-                              onPress={() => selectDeck(slot.key, deck)}
-                            >
-                              <Text style={styles.deckChipName}>{deck.name}</Text>
-                              {deck.commander1 && (
-                                <Text style={styles.deckChipCmd} numberOfLines={1}>
-                                  {deck.commander1}
-                                </Text>
-                              )}
-                            </Pressable>
-                          ))}
-                        {slot.availableDecks.filter((d) => d.format === format).length === 0 && (
-                          <Text style={styles.noDeckText}>No {FORMAT_LABELS[format as keyof typeof FORMAT_LABELS] ?? format} decks</Text>
-                        )}
-                      </View>
-                    </ScrollView>
-                  )}
-                </View>
+              {slot.source !== "guest" && (
+                <DeckPicker
+                  slot={slot}
+                  format={format}
+                  allGroupDecks={allGroupDecks}
+                  onSelect={(deck) => selectDeck(slot.key, deck)}
+                  onClear={() => clearDeck(slot.key)}
+                />
               )}
 
               {slot.source !== "guest" && (
