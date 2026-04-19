@@ -11,6 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { MTG_FORMATS, FORMAT_LABELS } from "@karakas/shared";
 import { useAuth } from "../../../src/contexts/auth-context";
 import { apiFetch } from "../../../src/lib/api";
@@ -91,7 +92,7 @@ export default function PlaygroupsScreen() {
         title: "Playgroups",
         headerRight: () => (
           <Pressable onPress={() => setShowCreate(!showCreate)}>
-            <Text style={{ color: colors.amber, fontSize: fontSize.lg, fontWeight: "bold" }}>+</Text>
+            <Ionicons name="add-circle-outline" size={24} color={colors.amber} />
           </Pressable>
         ),
       }} />

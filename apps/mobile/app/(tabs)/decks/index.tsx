@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Alert,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { MTG_FORMATS, FORMAT_LABELS, isCommanderFormat, hasBrackets } from "@karakas/shared";
 import { useAuth } from "../../../src/contexts/auth-context";
 import { apiFetch } from "../../../src/lib/api";
@@ -84,7 +85,7 @@ export default function DecksScreen() {
     <>
       <Stack.Screen options={{
         title: "Decks",
-        headerRight: () => <Pressable onPress={() => setShowCreate(!showCreate)}><Text style={{ color: colors.amber, fontSize: fontSize.lg, fontWeight: "bold" }}>+</Text></Pressable>,
+        headerRight: () => <Pressable onPress={() => setShowCreate(!showCreate)}><Ionicons name="add-circle-outline" size={24} color={colors.amber} /></Pressable>,
       }} />
 
       {showCreate && (
@@ -129,14 +130,19 @@ export default function DecksScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.amber} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No decks yet. Create one!</Text>}
           renderItem={({ item: deck }) => (
-            <Pressable style={styles.card} onLongPress={() => handleDelete(deck)}>
+            <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.deckName}>{deck.name}</Text>
-                <Text style={styles.format}>{FORMAT_LABELS[deck.format as keyof typeof FORMAT_LABELS] ?? deck.format}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.deckName}>{deck.name}</Text>
+                  <Text style={styles.format}>{FORMAT_LABELS[deck.format as keyof typeof FORMAT_LABELS] ?? deck.format}</Text>
+                </View>
+                <Pressable onPress={() => handleDelete(deck)} hitSlop={8}>
+                  <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
+                </Pressable>
               </View>
               {deck.commander1 && <Text style={styles.commander}>{deck.commander1}{deck.commander2 ? ` / ${deck.commander2}` : ""}</Text>}
               {deck.bracket && <Text style={styles.bracket}>Bracket {deck.bracket}</Text>}
-            </Pressable>
+            </View>
           )}
         />
       )}

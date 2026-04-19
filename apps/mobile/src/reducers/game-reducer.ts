@@ -287,9 +287,14 @@ function applyAction(state: GameState, action: GameAction): GameState {
         nextIndex = (nextIndex + 1) % state.players.length;
         attempts++;
       }
+      // A "turn" is a full round. Only increment when wrapping back to the first active player.
+      const firstActiveIndex = state.players.findIndex((p) => !p.isEliminated);
+      const newTurn = nextIndex === firstActiveIndex
+        ? state.currentTurn + 1
+        : state.currentTurn;
       return {
         ...state,
-        currentTurn: state.currentTurn + 1,
+        currentTurn: newTurn,
         activePlayerIndex: nextIndex,
       };
     }

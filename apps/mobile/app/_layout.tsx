@@ -18,7 +18,11 @@ export default function RootLayout() {
               headerTitleStyle: { fontWeight: "bold" },
               contentStyle: { backgroundColor: colors.background },
             }}
-          />
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="game" options={{ headerShown: false }} />
+          </Stack>
         </GameProvider>
       </AuthProvider>
     </GestureHandlerRootView>

@@ -10,6 +10,7 @@ import {
 import { useRouter, Stack } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Haptics from "expo-haptics";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useGame } from "../../src/contexts/game-context";
 import { PlayerPanel } from "../../src/components/PlayerPanel";
 import { PlayerDetailModal } from "../../src/components/PlayerDetailModal";
@@ -165,11 +166,11 @@ export default function PlayScreen() {
             style={[styles.controlButton, !canUndo && styles.controlButtonDisabled]}
             onPress={handleUndo}
           >
-            <Text style={styles.controlButtonText}>↩</Text>
+            <Ionicons name="arrow-undo" size={20} color={canUndo ? colors.text : colors.textMuted} />
           </Pressable>
 
           <Pressable style={styles.controlButton} onPress={handleResetGame}>
-            <Text style={styles.controlButtonText}>↻</Text>
+            <Ionicons name="refresh" size={20} color={colors.text} />
           </Pressable>
 
           <Pressable style={styles.turnButton} onPress={handleAdvanceTurn}>
@@ -178,6 +179,7 @@ export default function PlayScreen() {
             </Text>
             <Text style={styles.activePlayerText}>
               {state.players[state.activePlayerIndex]?.name}
+              {" "}({state.players.filter((p, i) => !p.isEliminated && i <= state.activePlayerIndex).length}/{state.players.filter((p) => !p.isEliminated).length})
             </Text>
           </Pressable>
 
@@ -185,14 +187,14 @@ export default function PlayScreen() {
             style={styles.endGameButton}
             onPress={() => router.push("/game/end")}
           >
-            <Text style={styles.endGameButtonText}>End</Text>
+            <Ionicons name="stop-circle-outline" size={18} color={colors.red} />
           </Pressable>
 
           <Pressable
             style={[styles.controlButton, !canRedo && styles.controlButtonDisabled]}
             onPress={handleRedo}
           >
-            <Text style={styles.controlButtonText}>↪</Text>
+            <Ionicons name="arrow-redo" size={20} color={canRedo ? colors.text : colors.textMuted} />
           </Pressable>
         </View>
       </View>

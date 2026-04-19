@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { FORMAT_LABELS } from "@karakas/shared";
 import { useAuth } from "../../../src/contexts/auth-context";
 import { apiFetch } from "../../../src/lib/api";
@@ -66,7 +67,9 @@ export default function GamesScreen() {
   if (!isAuthenticated) {
     return (
       <>
-        <Stack.Screen options={{ title: "Games" }} />
+        <Stack.Screen options={{ title: "Games", headerRight: () => (
+          <Pressable onPress={() => router.push("/game/setup")}><Ionicons name="add-circle-outline" size={24} color={colors.amber} /></Pressable>
+        ) }} />
         <View style={styles.empty}>
           <Text style={styles.emptyText}>Sign in to see your game history</Text>
           <Pressable style={styles.signInButton} onPress={() => router.push("/(auth)/login")}>
@@ -79,7 +82,9 @@ export default function GamesScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Games" }} />
+      <Stack.Screen options={{ title: "Games", headerRight: () => (
+        <Pressable onPress={() => router.push("/game/setup")}><Ionicons name="add-circle-outline" size={24} color={colors.amber} /></Pressable>
+      ) }} />
       {loading ? (
         <View style={styles.empty}><ActivityIndicator color={colors.amber} /></View>
       ) : (
@@ -93,7 +98,7 @@ export default function GamesScreen() {
             const winner = getWinner(game);
             const date = new Date(game.playedAt);
             return (
-              <Pressable style={styles.card}>
+              <Pressable style={styles.card} onPress={() => router.push(`/(tabs)/games/${game.id}` as never)}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.format}>
                     {FORMAT_LABELS[game.format as keyof typeof FORMAT_LABELS] ?? game.format}
