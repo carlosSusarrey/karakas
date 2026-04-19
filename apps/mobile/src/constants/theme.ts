@@ -20,14 +20,14 @@ export const colors = {
   blue: "#3b82f6",
   purple: "#a855f7",
 
-  // Player panel colors (muted to not compete with life totals)
+  // Player panel colors — rich and distinct
   playerColors: [
-    "#991b1b", // red-800
-    "#1e3a5f", // blue-800
-    "#166534", // green-800
-    "#6b21a8", // purple-800
-    "#92400e", // amber-800
-    "#0e7490", // cyan-800
+    "#b91c1c", // red-700
+    "#1d4ed8", // blue-700
+    "#15803d", // green-700
+    "#7e22ce", // purple-700
+    "#b45309", // amber-700
+    "#0e7490", // cyan-700
   ] as const,
 };
 

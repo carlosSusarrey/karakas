@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { MTG_FORMATS, FORMAT_LABELS, getStartingLife } from "@karakas/shared";
 import { useGame } from "../../src/contexts/game-context";
 import { useAuth } from "../../src/contexts/auth-context";
@@ -236,7 +237,14 @@ export default function GameSetupScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "New Game" }} />
+      <Stack.Screen options={{
+        title: "New Game",
+        headerLeft: () => (
+          <Pressable onPress={() => router.back()} style={{ marginRight: spacing.md }}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </Pressable>
+        ),
+      }} />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Playgroup Selection */}
         {isAuthenticated && playgroups.length > 0 && (

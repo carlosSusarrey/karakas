@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
-  View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert, Pressable,
+  View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert, Pressable, RefreshControl,
 } from "react-native";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { FORMAT_LABELS, POWER_PLAY_LABELS } from "@karakas/shared";
-import { useAuth } from "../../../src/contexts/auth-context";
-import { apiFetch } from "../../../src/lib/api";
-import { colors, spacing, fontSize } from "../../../src/constants/theme";
+import { useAuth } from "../../../../src/contexts/auth-context";
+import { apiFetch } from "../../../../src/lib/api";
+import { colors, spacing, fontSize } from "../../../../src/constants/theme";
 
 type GameDetail = {
   id: string;
@@ -48,12 +49,15 @@ export default function GameDetailScreen() {
   const [game, setGame] = useState<GameDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadGame = useCallback(() => {
+    setLoading(true);
     apiFetch<{ game: GameDetail }>(`/api/v1/games/${id}`)
       .then((data) => setGame(data.game))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
+
+  useFocusEffect(useCallback(() => { loadGame(); }, [loadGame]));
 
   const getPlayerName = (p: GameDetail["players"][0]) =>
     p.user?.username ?? p.playgroupPlayer?.name ?? p.guestName ?? "Unknown";
@@ -90,9 +94,14 @@ export default function GameDetailScreen() {
       <Stack.Screen options={{
         title: FORMAT_LABELS[game.format as keyof typeof FORMAT_LABELS] ?? game.format,
         headerRight: isCreator ? () => (
-          <Pressable onPress={handleDelete}>
-            <Text style={{ color: colors.red, fontSize: fontSize.md }}>Delete</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 16 }}>
+            <Pressable onPress={() => router.push(`/(tabs)/games/${id}/edit` as never)}>
+              <Ionicons name="pencil" size={20} color={colors.amber} />
+            </Pressable>
+            <Pressable onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={20} color={colors.red} />
+            </Pressable>
+          </View>
         ) : undefined,
       }} />
       <ScrollView style={styles.container}>
