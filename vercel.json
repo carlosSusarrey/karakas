@@ -1,0 +1,3 @@
+{
+  "installCommand": "npm install && npm install lightningcss-linux-x64-gnu@1.30.2"
+}
