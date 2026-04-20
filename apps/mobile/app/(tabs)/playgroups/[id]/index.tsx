@@ -41,7 +41,7 @@ export default function PlaygroupDetailScreen() {
     try {
       const [pgData, gamesData] = await Promise.all([
         apiFetch<{ playgroup: PlaygroupDetail }>(`/api/v1/playgroups/${id}`),
-        apiFetch<{ games: GameSummary[] }>(`/api/v1/games?playgroupId=${id}&limit=20`),
+        apiFetch<{ games: GameSummary[] }>(`/api/v1/games?playgroupId=${id}&limit=500`),
       ]);
       setPg(pgData.playgroup);
       setGames(gamesData.games);
@@ -55,15 +55,20 @@ export default function PlaygroupDetailScreen() {
   const myMembership = pg?.members.find((m) => m.user.id === user?.id);
   const isAdmin = myMembership?.role === "owner" || myMembership?.role === "admin";
 
-  // Compute leaderboard from games
+  // Compute leaderboard from games — use IDs to avoid duplicate entries
   const leaderboard = (() => {
     const stats: Record<string, { name: string; games: number; wins: number }> = {};
     for (const game of games) {
       for (const p of game.players) {
+        const playerId = p.user?.username
+          ? `user-${p.user.username}`
+          : p.playgroupPlayer?.name
+            ? `player-${p.playgroupPlayer.name}`
+            : `guest-${p.guestName}`;
         const name = p.user?.username ?? p.playgroupPlayer?.name ?? p.guestName ?? "Unknown";
-        if (!stats[name]) stats[name] = { name, games: 0, wins: 0 };
-        stats[name].games++;
-        if (p.isWinner) stats[name].wins++;
+        if (!stats[playerId]) stats[playerId] = { name, games: 0, wins: 0 };
+        stats[playerId].games++;
+        if (p.isWinner) stats[playerId].wins++;
       }
     }
     return Object.values(stats).sort((a, b) => b.wins - a.wins).slice(0, 10);
