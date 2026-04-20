@@ -17,7 +17,11 @@ type PlaygroupDetail = {
 };
 type GameSummary = {
   id: string; format: string; playedAt: string; totalTurns: number | null;
-  players: { isWinner: boolean; guestName: string | null; user: { username: string } | null; playgroupPlayer: { name: string } | null }[];
+  players: {
+    isWinner: boolean; placement: number | null; guestName: string | null;
+    user: { id: string; username: string } | null;
+    playgroupPlayer: { id: string; name: string } | null;
+  }[];
 };
 
 export default function PlaygroupDetailScreen() {
@@ -55,23 +59,37 @@ export default function PlaygroupDetailScreen() {
   const myMembership = pg?.members.find((m) => m.user.id === user?.id);
   const isAdmin = myMembership?.role === "owner" || myMembership?.role === "admin";
 
-  // Compute leaderboard from games — use IDs to avoid duplicate entries
+  // Compute leaderboard — match web logic: only completed games, use IDs, skip guests
   const leaderboard = (() => {
     const stats: Record<string, { name: string; games: number; wins: number }> = {};
     for (const game of games) {
+      // Only count completed games (has a winner or all players have placement)
+      const hasWinner = game.players.some((p) => p.isWinner);
+      const allPlaced = game.players.every((p) => p.placement !== null);
+      if (!hasWinner && !allPlaced) continue;
+
       for (const p of game.players) {
-        const playerId = p.user?.username
-          ? `user-${p.user.username}`
-          : p.playgroupPlayer?.name
-            ? `player-${p.playgroupPlayer.name}`
-            : `guest-${p.guestName}`;
-        const name = p.user?.username ?? p.playgroupPlayer?.name ?? p.guestName ?? "Unknown";
+        // Use user ID or playgroup player ID — skip guests (matches web behavior)
+        let playerId: string;
+        let name: string;
+        if (p.user) {
+          playerId = `user-${p.user.id}`;
+          name = p.user.username;
+        } else if (p.playgroupPlayer) {
+          playerId = `player-${p.playgroupPlayer.id}`;
+          name = p.playgroupPlayer.name;
+        } else {
+          continue; // Skip guest players like the web does
+        }
+
         if (!stats[playerId]) stats[playerId] = { name, games: 0, wins: 0 };
         stats[playerId].games++;
         if (p.isWinner) stats[playerId].wins++;
       }
     }
-    return Object.values(stats).sort((a, b) => b.wins - a.wins).slice(0, 10);
+    return Object.values(stats)
+      .sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : (b.games > 0 ? b.wins / b.games : 0) - (a.games > 0 ? a.wins / a.games : 0))
+      .slice(0, 10);
   })();
 
   const handleInvite = async () => {
