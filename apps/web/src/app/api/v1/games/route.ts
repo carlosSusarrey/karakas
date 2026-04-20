@@ -13,8 +13,11 @@ export async function GET(request: NextRequest) {
 
   const games = await db.game.findMany({
     where: {
-      players: { some: { userId } },
-      ...(playgroupId ? { playgroupId } : {}),
+      // If filtering by playgroup, show all games in that playgroup (for stats)
+      // Otherwise only show games the user participated in
+      ...(playgroupId
+        ? { playgroupId }
+        : { players: { some: { userId } } }),
       ...(format ? { format } : {}),
     },
     include: {
