@@ -45,7 +45,7 @@ export default function PlaygroupDetailScreen() {
     try {
       const [pgData, gamesData] = await Promise.all([
         apiFetch<{ playgroup: PlaygroupDetail }>(`/api/v1/playgroups/${id}`),
-        apiFetch<{ games: GameSummary[] }>(`/api/v1/games?playgroupId=${id}&limit=500`),
+        apiFetch<{ games: GameSummary[] }>(`/api/v1/games?playgroupId=${id}&limit=9999`),
       ]);
       setPg(pgData.playgroup);
       setGames(gamesData.games);
