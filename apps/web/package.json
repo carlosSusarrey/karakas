@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
-    "@karakas/shared": "*",
+    "@karakas/shared": "file:../../packages/shared",
     "@libsql/client": "^0.17.0",
     "@oslojs/crypto": "^1.0.1",
     "@oslojs/encoding": "^1.1.0",
