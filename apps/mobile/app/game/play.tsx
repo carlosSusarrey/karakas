@@ -6,6 +6,8 @@ import {
   StyleSheet,
   useWindowDimensions,
   Alert,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
@@ -19,9 +21,10 @@ import { colors, spacing, fontSize } from "../../src/constants/theme";
 export default function PlayScreen() {
   useKeepAwake();
   const router = useRouter();
-  const { state, dispatch, canUndo, canRedo } = useGame();
+  const { state, dispatch, canUndo, canRedo, startNewGame } = useGame();
   const { width, height } = useWindowDimensions();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [showReorder, setShowReorder] = useState(false);
 
   const isLandscape = width > height;
   const playerCount = state.players.length;
@@ -52,17 +55,6 @@ export default function PlayScreen() {
     }
   }, [canRedo, dispatch]);
 
-  const handleNewGame = useCallback(() => {
-    Alert.alert("New Game", "Start a new game? Current game will be lost.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "New Game",
-        style: "destructive",
-        onPress: () => router.replace("/game/setup"),
-      },
-    ]);
-  }, [router]);
-
   const handleResetGame = useCallback(() => {
     Alert.alert("Reset Game", "Reset all life totals and counters?", [
       { text: "Cancel", style: "cancel" },
@@ -74,6 +66,18 @@ export default function PlayScreen() {
     ]);
   }, [dispatch]);
 
+  const movePlayer = useCallback(
+    (index: number, direction: -1 | 1) => {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= state.players.length) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const newOrder = [...state.players.map((p) => p.id)];
+      [newOrder[index], newOrder[newIndex]] = [newOrder[newIndex], newOrder[index]];
+      dispatch({ type: "REORDER_PLAYERS", playerIds: newOrder });
+    },
+    [state.players, dispatch]
+  );
+
   const selectedPlayer = selectedPlayerId
     ? state.players.find((p) => p.id === selectedPlayerId) ?? null
     : null;
@@ -81,7 +85,6 @@ export default function PlayScreen() {
   // Layout strategy based on player count and orientation
   const getLayout = () => {
     if (playerCount === 2) {
-      // 2 players: stacked vertically, opponent rotated 180°
       return (
         <View style={styles.twoPlayerLayout}>
           <PlayerPanel
@@ -104,7 +107,6 @@ export default function PlayScreen() {
     }
 
     if (playerCount <= 4) {
-      // 3-4 players: 2x2 grid (3 players = one empty cell)
       const rows = [];
       for (let i = 0; i < playerCount; i += 2) {
         const rowPlayers = state.players.slice(i, i + 2);
@@ -128,7 +130,6 @@ export default function PlayScreen() {
       return <View style={styles.gridLayout}>{rows}</View>;
     }
 
-    // 5-6 players: 3x2 grid
     const rows = [];
     for (let i = 0; i < playerCount; i += 2) {
       const rowPlayers = state.players.slice(i, Math.min(i + 2, playerCount));
@@ -157,7 +158,6 @@ export default function PlayScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.container}>
-        {/* Player panels */}
         <View style={styles.playArea}>{getLayout()}</View>
 
         {/* Control bar */}
@@ -171,6 +171,10 @@ export default function PlayScreen() {
 
           <Pressable style={styles.controlButton} onPress={handleResetGame}>
             <Ionicons name="refresh" size={20} color={colors.text} />
+          </Pressable>
+
+          <Pressable style={styles.controlButton} onPress={() => setShowReorder(true)}>
+            <Ionicons name="swap-vertical" size={20} color={colors.text} />
           </Pressable>
 
           <Pressable style={styles.turnButton} onPress={handleAdvanceTurn}>
@@ -210,6 +214,45 @@ export default function PlayScreen() {
           onClose={() => setSelectedPlayerId(null)}
         />
       )}
+
+      {/* Reorder modal */}
+      <Modal visible={showReorder} animationType="slide" transparent>
+        <View style={styles.reorderOverlay}>
+          <View style={styles.reorderModal}>
+            <View style={styles.reorderHeader}>
+              <Text style={styles.reorderTitle}>Reorder Players</Text>
+              <Pressable onPress={() => setShowReorder(false)} style={styles.reorderClose}>
+                <Ionicons name="checkmark" size={24} color={colors.amber} />
+              </Pressable>
+            </View>
+            <Text style={styles.reorderHint}>Arrange to match seating / turn order</Text>
+            <ScrollView style={styles.reorderList}>
+              {state.players.map((player, index) => (
+                <View key={player.id} style={styles.reorderRow}>
+                  <View style={[styles.reorderDot, { backgroundColor: colors.playerColors[index % 6] }]} />
+                  <Text style={styles.reorderName}>{player.name}</Text>
+                  <View style={styles.reorderButtons}>
+                    <Pressable
+                      onPress={() => movePlayer(index, -1)}
+                      style={[styles.reorderBtn, index === 0 && styles.reorderBtnDisabled]}
+                      disabled={index === 0}
+                    >
+                      <Ionicons name="chevron-up" size={22} color={index === 0 ? colors.textMuted : colors.text} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => movePlayer(index, 1)}
+                      style={[styles.reorderBtn, index === state.players.length - 1 && styles.reorderBtnDisabled]}
+                      disabled={index === state.players.length - 1}
+                    >
+                      <Ionicons name="chevron-down" size={22} color={index === state.players.length - 1 ? colors.textMuted : colors.text} />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -243,12 +286,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   controlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.surfaceLight,
     justifyContent: "center",
     alignItems: "center",
@@ -256,24 +299,15 @@ const styles = StyleSheet.create({
   controlButtonDisabled: {
     opacity: 0.3,
   },
-  controlButtonText: {
-    fontSize: fontSize.xl,
-    color: colors.text,
-  },
   endGameButton: {
     paddingHorizontal: spacing.md,
-    height: 44,
-    borderRadius: 22,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.red + "33",
     borderWidth: 1,
     borderColor: colors.red,
     justifyContent: "center",
     alignItems: "center",
-  },
-  endGameButtonText: {
-    fontSize: fontSize.md,
-    fontWeight: "bold",
-    color: colors.red,
   },
   turnButton: {
     flex: 1,
@@ -288,5 +322,77 @@ const styles = StyleSheet.create({
   activePlayerText: {
     fontSize: fontSize.sm,
     color: colors.textSecondary,
+  },
+  // Reorder modal
+  reorderOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+  },
+  reorderModal: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    maxHeight: "70%",
+  },
+  reorderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.xs,
+  },
+  reorderTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: "bold",
+    color: colors.text,
+  },
+  reorderClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  reorderHint: {
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    marginBottom: spacing.lg,
+  },
+  reorderList: {},
+  reorderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.md,
+  },
+  reorderDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  reorderName: {
+    flex: 1,
+    fontSize: fontSize.lg,
+    color: colors.text,
+    fontWeight: "600",
+  },
+  reorderButtons: {
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  reorderBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  reorderBtnDisabled: {
+    opacity: 0.3,
   },
 });

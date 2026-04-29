@@ -67,6 +67,7 @@ export type GameAction =
   | { type: "REINSTATE_PLAYER"; playerId: string }
   | { type: "ADVANCE_TURN" }
   | { type: "SET_TURN"; turn: number }
+  | { type: "REORDER_PLAYERS"; playerIds: string[] }
   | { type: "UNDO" }
   | { type: "REDO" }
   | { type: "RESET_GAME" }
@@ -301,6 +302,20 @@ function applyAction(state: GameState, action: GameAction): GameState {
 
     case "SET_TURN": {
       return { ...state, currentTurn: action.turn };
+    }
+
+    case "REORDER_PLAYERS": {
+      const reordered = action.playerIds.map(
+        (id) => state.players.find((p) => p.id === id)!
+      );
+      // Adjust activePlayerIndex to follow the same player
+      const activePlayer = state.players[state.activePlayerIndex];
+      const newActiveIndex = reordered.findIndex((p) => p.id === activePlayer.id);
+      return {
+        ...state,
+        players: reordered,
+        activePlayerIndex: newActiveIndex >= 0 ? newActiveIndex : 0,
+      };
     }
 
     case "RESET_GAME": {

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useGame } from "../../src/contexts/game-context";
 import { useAuth } from "../../src/contexts/auth-context";
 import { apiFetch } from "../../src/lib/api";
@@ -16,7 +17,7 @@ import { colors, spacing, fontSize } from "../../src/constants/theme";
 
 export default function EndGameScreen() {
   const router = useRouter();
-  const { state, endActiveGame } = useGame();
+  const { state, endActiveGame, startNewGame } = useGame();
   const { isAuthenticated } = useAuth();
   const [winnerId, setWinnerId] = useState<string | null>(null);
   const [isDraw, setIsDraw] = useState(false);
@@ -26,6 +27,20 @@ export default function EndGameScreen() {
   const eliminatedPlayers = state.players
     .filter((p) => p.isEliminated)
     .sort((a, b) => (b.eliminatedTurn ?? 0) - (a.eliminatedTurn ?? 0));
+
+  const handleRematch = () => {
+    const players = state.players.map((p) => ({
+      name: p.name,
+      userId: p.serverUserId,
+      playgroupPlayerId: p.serverPlaygroupPlayerId,
+      deckId: p.serverDeckId,
+      commanderUsed1: p.commanderUsed1,
+      commanderUsed2: p.commanderUsed2,
+      bracketUsed: p.bracketUsed,
+    }));
+    startNewGame(state.format, players, state.playgroupId);
+    router.replace("/game/play");
+  };
 
   const handleEndGame = async () => {
     if (!isDraw && !winnerId) {
@@ -81,7 +96,13 @@ export default function EndGameScreen() {
 
       endActiveGame();
       Alert.alert("Game Saved", "Your game has been recorded.", [
-        { text: "OK", onPress: () => router.replace("/") },
+        { text: "Done", onPress: () => router.replace("/") },
+        {
+          text: "Rematch",
+          onPress: () => {
+            handleRematch();
+          },
+        },
       ]);
     } catch (e) {
       Alert.alert("Error", e instanceof Error ? e.message : "Failed to save game.");
@@ -163,6 +184,12 @@ export default function EndGameScreen() {
             </Text>
           )}
         </Pressable>
+
+        {/* Rematch button */}
+        <Pressable style={styles.rematchButton} onPress={handleRematch}>
+          <Ionicons name="repeat" size={20} color={colors.amber} />
+          <Text style={styles.rematchText}>Rematch — Same Players</Text>
+        </Pressable>
       </ScrollView>
     </>
   );
@@ -235,4 +262,16 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: { opacity: 0.6 },
   submitText: { fontSize: fontSize.xl, fontWeight: "bold", color: colors.background },
+  rematchButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    borderWidth: 2,
+    borderColor: colors.amber,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    marginTop: spacing.md,
+  },
+  rematchText: { fontSize: fontSize.lg, fontWeight: "bold", color: colors.amber },
 });
