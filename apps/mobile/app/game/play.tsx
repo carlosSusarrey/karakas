@@ -6,13 +6,19 @@ import {
   StyleSheet,
   useWindowDimensions,
   Alert,
-  LayoutRectangle,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from "react-native-reanimated";
 import { useGame } from "../../src/contexts/game-context";
 import { PlayerPanel } from "../../src/components/PlayerPanel";
 import { PlayerDetailModal } from "../../src/components/PlayerDetailModal";
@@ -21,17 +27,23 @@ import { colors, spacing, fontSize } from "../../src/constants/theme";
 export default function PlayScreen() {
   useKeepAwake();
   const router = useRouter();
-  const { state, dispatch, canUndo, canRedo, startNewGame } = useGame();
+  const insets = useSafeAreaInsets();
+  const { state, dispatch, canUndo, canRedo } = useGame();
   const { width, height } = useWindowDimensions();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [reorderMode, setReorderMode] = useState(false);
-  const [dragSourceId, setDragSourceId] = useState<string | null>(null);
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
-  // Track panel layouts for drop target detection
-  const panelLayouts = useRef<Record<string, LayoutRectangle>>({});
+  // Drag state
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
+  const dragX = useSharedValue(0);
+  const dragY = useSharedValue(0);
+  const dragScale = useSharedValue(1);
+  const isDragging = useSharedValue(false);
 
-  const insets = useSafeAreaInsets();
+  // Store panel positions for hit-testing
+  const panelPositions = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
+  const playAreaRef = useRef<View>(null);
+
   const playerCount = state.players.length;
 
   const handleLifeChange = useCallback(
@@ -71,65 +83,159 @@ export default function PlayScreen() {
     ]);
   }, [dispatch]);
 
-  const handlePanelPress = useCallback(
-    (playerId: string) => {
-      if (reorderMode) {
-        if (!dragSourceId) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setDragSourceId(playerId);
-        } else if (dragSourceId !== playerId) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          const ids = state.players.map((p) => p.id);
-          const fromIdx = ids.indexOf(dragSourceId);
-          const toIdx = ids.indexOf(playerId);
-          const newOrder = [...ids];
-          [newOrder[fromIdx], newOrder[toIdx]] = [newOrder[toIdx], newOrder[fromIdx]];
-          dispatch({ type: "REORDER_PLAYERS", playerIds: newOrder });
-          setDragSourceId(null);
-        } else {
-          setDragSourceId(null);
-        }
-      } else {
-        setSelectedPlayerId(playerId);
-      }
-    },
-    [reorderMode, dragSourceId, state.players, dispatch]
-  );
-
-  const handlePanelLongPress = useCallback(
-    (playerId: string) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      setReorderMode(true);
-      setDragSourceId(playerId);
-    },
-    []
-  );
-
-  const exitReorderMode = useCallback(() => {
-    setReorderMode(false);
-    setDragSourceId(null);
-    setDropTargetId(null);
+  // Drag callbacks
+  const onDragStart = useCallback((playerId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setDraggingId(playerId);
   }, []);
+
+  const onDragMove = useCallback((absX: number, absY: number) => {
+    // Find which panel the finger is over
+    const positions = panelPositions.current;
+    let found = -1;
+    for (let i = 0; i < positions.length; i++) {
+      const p = positions[i];
+      if (absX >= p.x && absX <= p.x + p.w && absY >= p.y && absY <= p.y + p.h) {
+        found = i;
+        break;
+      }
+    }
+    setDropTargetIdx(found >= 0 ? found : null);
+  }, []);
+
+  const onDragEnd = useCallback((playerId: string) => {
+    if (dropTargetIdx !== null) {
+      const targetPlayer = state.players[dropTargetIdx];
+      if (targetPlayer && targetPlayer.id !== playerId) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const ids = state.players.map((p) => p.id);
+        const fromIdx = ids.indexOf(playerId);
+        const newOrder = [...ids];
+        [newOrder[fromIdx], newOrder[dropTargetIdx]] = [newOrder[dropTargetIdx], newOrder[fromIdx]];
+        dispatch({ type: "REORDER_PLAYERS", playerIds: newOrder });
+      }
+    }
+    setDraggingId(null);
+    setDropTargetIdx(null);
+  }, [dropTargetIdx, state.players, dispatch]);
 
   const selectedPlayer = selectedPlayerId
     ? state.players.find((p) => p.id === selectedPlayerId) ?? null
     : null;
 
-  const renderPanel = (player: typeof state.players[0], index: number, rotated: boolean, compact: boolean) => (
-    <PlayerPanel
-      key={player.id}
-      player={player}
-      color={colors.playerColors[(player.colorIndex ?? index) % 6]}
-      isActive={!reorderMode && state.activePlayerIndex === index}
-      rotated={!reorderMode && rotated}
-      compact={compact}
-      isSwapSource={dragSourceId === player.id}
-      isSwapTarget={reorderMode && dragSourceId !== null && dragSourceId !== player.id}
-      onLifeChange={(amt) => handleLifeChange(player.id, amt)}
-      onPress={() => handlePanelPress(player.id)}
-      onLongPress={() => handlePanelLongPress(player.id)}
-    />
-  );
+  // Measure panel positions after layout
+  const measurePanels = useCallback(() => {
+    if (!playAreaRef.current) return;
+    playAreaRef.current.measureInWindow((areaX, areaY) => {
+      // Calculate positions based on grid layout
+      const safeTop = insets.top;
+      const controlBarHeight = 56;
+      const availableHeight = height - safeTop - controlBarHeight - insets.bottom;
+      const availableWidth = width;
+
+      const positions: typeof panelPositions.current = [];
+
+      if (playerCount === 2) {
+        const panelH = availableHeight / 2;
+        state.players.forEach((p, i) => {
+          positions.push({
+            id: p.id,
+            x: 0,
+            y: safeTop + i * panelH,
+            w: availableWidth,
+            h: panelH,
+          });
+        });
+      } else {
+        const cols = 2;
+        const rows = Math.ceil(playerCount / cols);
+        const panelW = availableWidth / cols;
+        const panelH = availableHeight / rows;
+        state.players.forEach((p, i) => {
+          const row = Math.floor(i / cols);
+          const col = i % cols;
+          positions.push({
+            id: p.id,
+            x: col * panelW,
+            y: safeTop + row * panelH,
+            w: panelW,
+            h: panelH,
+          });
+        });
+      }
+      panelPositions.current = positions;
+    });
+  }, [state.players, playerCount, width, height, insets]);
+
+  const renderPanel = (player: typeof state.players[0], index: number, rotated: boolean, compact: boolean) => {
+    const isDragSource = draggingId === player.id;
+    const isDropTarget = dropTargetIdx !== null && state.players[dropTargetIdx]?.id === player.id && draggingId !== player.id;
+
+    const panelContent = (
+      <PlayerPanel
+        key={player.id}
+        player={player}
+        color={colors.playerColors[(player.colorIndex ?? index) % 6]}
+        isActive={state.activePlayerIndex === index}
+        rotated={rotated}
+        compact={compact}
+        isSwapSource={isDragSource}
+        isSwapTarget={isDropTarget}
+        onLifeChange={(amt) => handleLifeChange(player.id, amt)}
+        onPress={() => {
+          if (!draggingId) setSelectedPlayerId(player.id);
+        }}
+        onLongPress={() => {}}
+      />
+    );
+
+    // Wrap each panel in a gesture detector for drag
+    const gesture = Gesture.Pan()
+      .activateAfterLongPress(400)
+      .onStart(() => {
+        isDragging.value = true;
+        dragX.value = 0;
+        dragY.value = 0;
+        dragScale.value = withSpring(1.05);
+        runOnJS(onDragStart)(player.id);
+      })
+      .onUpdate((e) => {
+        dragX.value = e.translationX;
+        dragY.value = e.translationY;
+        runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
+      })
+      .onEnd(() => {
+        isDragging.value = false;
+        dragX.value = withSpring(0);
+        dragY.value = withSpring(0);
+        dragScale.value = withSpring(1);
+        runOnJS(onDragEnd)(player.id);
+      });
+
+    const animatedStyle = useAnimatedStyle(() => {
+      if (draggingId !== player.id) return {};
+      return {
+        transform: [
+          { translateX: dragX.value },
+          { translateY: dragY.value },
+          { scale: dragScale.value },
+        ],
+        zIndex: 100,
+        elevation: 10,
+        opacity: 0.9,
+      };
+    });
+
+    return (
+      <Animated.View key={player.id} style={[{ flex: 1 }, animatedStyle]}>
+        <GestureDetector gesture={gesture}>
+          <View style={{ flex: 1 }} onLayout={() => measurePanels()}>
+            {panelContent}
+          </View>
+        </GestureDetector>
+      </Animated.View>
+    );
+  };
 
   const getLayout = () => {
     if (playerCount === 2) {
@@ -175,21 +281,17 @@ export default function PlayScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        {/* Reorder mode banner */}
-        {reorderMode && (
-          <View style={styles.reorderBanner}>
-            <Ionicons name="swap-vertical" size={18} color={colors.amber} />
-            <Text style={styles.reorderBannerText}>
-              {dragSourceId ? "Tap a player to swap with" : "Tap a player to pick up"}
-            </Text>
-            <Pressable onPress={exitReorderMode} style={styles.doneBadge}>
-              <Ionicons name="checkmark" size={16} color={colors.background} />
-              <Text style={styles.doneText}>Done</Text>
-            </Pressable>
+        {/* Drag hint banner */}
+        {draggingId && (
+          <View style={styles.dragBanner}>
+            <Ionicons name="swap-vertical" size={16} color={colors.amber} />
+            <Text style={styles.dragBannerText}>Drop on another player to swap</Text>
           </View>
         )}
 
-        <View style={styles.playArea}>{getLayout()}</View>
+        <View ref={playAreaRef} style={styles.playArea} onLayout={() => measurePanels()}>
+          {getLayout()}
+        </View>
 
         {/* Control bar */}
         <View style={styles.controlBar}>
@@ -202,13 +304,6 @@ export default function PlayScreen() {
 
           <Pressable style={styles.controlButton} onPress={handleResetGame}>
             <Ionicons name="refresh" size={20} color={colors.text} />
-          </Pressable>
-
-          <Pressable
-            style={styles.controlButton}
-            onPress={() => { setReorderMode(!reorderMode); setDragSourceId(null); }}
-          >
-            <Ionicons name="swap-vertical" size={20} color={reorderMode ? colors.amber : colors.text} />
           </Pressable>
 
           <Pressable style={styles.turnButton} onPress={handleAdvanceTurn}>
@@ -256,36 +351,20 @@ const styles = StyleSheet.create({
   twoPlayerLayout: { flex: 1, flexDirection: "column" },
   gridLayout: { flex: 1, flexDirection: "column" },
   gridRow: { flex: 1, flexDirection: "row" },
-  reorderBanner: {
+  dragBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.amber + "22",
     borderBottomWidth: 1,
     borderBottomColor: colors.amber,
   },
-  reorderBannerText: {
-    flex: 1,
+  dragBannerText: {
     color: colors.amber,
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     fontWeight: "600",
-  },
-  doneBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.amber,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 16,
-  },
-  doneText: {
-    color: colors.background,
-    fontSize: fontSize.md,
-    fontWeight: "bold",
   },
   controlBar: {
     flexDirection: "row",

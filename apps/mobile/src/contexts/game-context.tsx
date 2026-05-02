@@ -37,6 +37,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         const saved = await AsyncStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved) as GameState;
+          // Backfill colorIndex for games created before this field existed
+          parsed.players = parsed.players.map((p, i) => ({
+            ...p,
+            colorIndex: p.colorIndex ?? i,
+          }));
           dispatch({ type: "RESTORE_STATE", state: parsed });
           setHasActiveGame(true);
         }
