@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -6,8 +6,10 @@ import {
   StyleSheet,
   useWindowDimensions,
   Alert,
+  LayoutRectangle,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,8 +24,14 @@ export default function PlayScreen() {
   const { state, dispatch, canUndo, canRedo, startNewGame } = useGame();
   const { width, height } = useWindowDimensions();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [swapSourceId, setSwapSourceId] = useState<string | null>(null);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [dragSourceId, setDragSourceId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
+  // Track panel layouts for drop target detection
+  const panelLayouts = useRef<Record<string, LayoutRectangle>>({});
+
+  const insets = useSafeAreaInsets();
   const playerCount = state.players.length;
 
   const handleLifeChange = useCallback(
@@ -63,49 +71,44 @@ export default function PlayScreen() {
     ]);
   }, [dispatch]);
 
-  const [reorderMode, setReorderMode] = useState(false);
-
-  // Long-press to enter reorder mode, then tap pairs to swap
   const handlePanelPress = useCallback(
     (playerId: string) => {
       if (reorderMode) {
-        if (!swapSourceId) {
-          // First tap in reorder mode — select source
+        if (!dragSourceId) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          setSwapSourceId(playerId);
-        } else if (swapSourceId !== playerId) {
-          // Second tap — swap and stay in reorder mode
+          setDragSourceId(playerId);
+        } else if (dragSourceId !== playerId) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           const ids = state.players.map((p) => p.id);
-          const fromIdx = ids.indexOf(swapSourceId);
+          const fromIdx = ids.indexOf(dragSourceId);
           const toIdx = ids.indexOf(playerId);
           const newOrder = [...ids];
           [newOrder[fromIdx], newOrder[toIdx]] = [newOrder[toIdx], newOrder[fromIdx]];
           dispatch({ type: "REORDER_PLAYERS", playerIds: newOrder });
-          setSwapSourceId(null); // Clear selection but stay in reorder mode
+          setDragSourceId(null);
         } else {
-          // Tapped same player — deselect
-          setSwapSourceId(null);
+          setDragSourceId(null);
         }
       } else {
         setSelectedPlayerId(playerId);
       }
     },
-    [reorderMode, swapSourceId, state.players, dispatch]
+    [reorderMode, dragSourceId, state.players, dispatch]
   );
 
   const handlePanelLongPress = useCallback(
     (playerId: string) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       setReorderMode(true);
-      setSwapSourceId(playerId);
+      setDragSourceId(playerId);
     },
     []
   );
 
   const exitReorderMode = useCallback(() => {
     setReorderMode(false);
-    setSwapSourceId(null);
+    setDragSourceId(null);
+    setDropTargetId(null);
   }, []);
 
   const selectedPlayer = selectedPlayerId
@@ -117,11 +120,11 @@ export default function PlayScreen() {
       key={player.id}
       player={player}
       color={colors.playerColors[(player.colorIndex ?? index) % 6]}
-      isActive={state.activePlayerIndex === index}
-      rotated={rotated}
+      isActive={!reorderMode && state.activePlayerIndex === index}
+      rotated={!reorderMode && rotated}
       compact={compact}
-      isSwapSource={swapSourceId === player.id}
-      isSwapTarget={reorderMode && swapSourceId !== player.id}
+      isSwapSource={dragSourceId === player.id}
+      isSwapTarget={reorderMode && dragSourceId !== null && dragSourceId !== player.id}
       onLifeChange={(amt) => handleLifeChange(player.id, amt)}
       onPress={() => handlePanelPress(player.id)}
       onLongPress={() => handlePanelLongPress(player.id)}
@@ -171,15 +174,16 @@ export default function PlayScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         {/* Reorder mode banner */}
         {reorderMode && (
-          <View style={styles.swapBanner}>
-            <Text style={styles.swapBannerText}>
-              {swapSourceId ? "Tap another player to swap" : "Tap a player to select"}
+          <View style={styles.reorderBanner}>
+            <Ionicons name="swap-vertical" size={18} color={colors.amber} />
+            <Text style={styles.reorderBannerText}>
+              {dragSourceId ? "Tap a player to swap with" : "Tap a player to pick up"}
             </Text>
             <Pressable onPress={exitReorderMode} style={styles.doneBadge}>
-              <Ionicons name="checkmark" size={18} color={colors.background} />
+              <Ionicons name="checkmark" size={16} color={colors.background} />
               <Text style={styles.doneText}>Done</Text>
             </Pressable>
           </View>
@@ -200,10 +204,15 @@ export default function PlayScreen() {
             <Ionicons name="refresh" size={20} color={colors.text} />
           </Pressable>
 
+          <Pressable
+            style={styles.controlButton}
+            onPress={() => { setReorderMode(!reorderMode); setDragSourceId(null); }}
+          >
+            <Ionicons name="swap-vertical" size={20} color={reorderMode ? colors.amber : colors.text} />
+          </Pressable>
+
           <Pressable style={styles.turnButton} onPress={handleAdvanceTurn}>
-            <Text style={styles.turnText}>
-              Turn {state.currentTurn}
-            </Text>
+            <Text style={styles.turnText}>Turn {state.currentTurn}</Text>
             <Text style={styles.activePlayerText}>
               {state.players[state.activePlayerIndex]?.name}
               {" "}({state.players.filter((p, i) => !p.isEliminated && i <= state.activePlayerIndex).length}/{state.players.filter((p) => !p.isEliminated).length})
@@ -242,36 +251,24 @@ export default function PlayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  playArea: {
-    flex: 1,
-  },
-  twoPlayerLayout: {
-    flex: 1,
-    flexDirection: "column",
-  },
-  gridLayout: {
-    flex: 1,
-    flexDirection: "column",
-  },
-  gridRow: {
-    flex: 1,
-    flexDirection: "row",
-  },
-  swapBanner: {
+  container: { flex: 1, backgroundColor: colors.background },
+  playArea: { flex: 1 },
+  twoPlayerLayout: { flex: 1, flexDirection: "column" },
+  gridLayout: { flex: 1, flexDirection: "column" },
+  gridRow: { flex: 1, flexDirection: "row" },
+  reorderBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.amber + "22",
     borderBottomWidth: 1,
     borderBottomColor: colors.amber,
   },
-  swapBannerText: {
+  reorderBannerText: {
+    flex: 1,
     color: colors.amber,
     fontSize: fontSize.md,
     fontWeight: "600",
@@ -309,9 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  controlButtonDisabled: {
-    opacity: 0.3,
-  },
+  controlButtonDisabled: { opacity: 0.3 },
   endGameButton: {
     paddingHorizontal: spacing.md,
     height: 40,
