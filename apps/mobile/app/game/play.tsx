@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,115 +12,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  runOnJS,
-} from "react-native-reanimated";
 import { useGame } from "../../src/contexts/game-context";
 import { PlayerPanel } from "../../src/components/PlayerPanel";
 import { PlayerDetailModal } from "../../src/components/PlayerDetailModal";
 import { colors, spacing, fontSize } from "../../src/constants/theme";
-
-// Draggable wrapper component so useAnimatedStyle is called at component level
-function DraggablePanel({
-  player,
-  index,
-  color,
-  isActive,
-  rotated,
-  compact,
-  isDragSource,
-  isDropTarget,
-  onLifeChange,
-  onPress,
-  onDragStart,
-  onDragMove,
-  onDragEnd,
-  onMeasured,
-}: {
-  player: any;
-  index: number;
-  color: string;
-  isActive: boolean;
-  rotated: boolean;
-  compact: boolean;
-  isDragSource: boolean;
-  isDropTarget: boolean;
-  onLifeChange: (amt: number) => void;
-  onPress: () => void;
-  onDragStart: () => void;
-  onDragMove: (absX: number, absY: number) => void;
-  onDragEnd: () => void;
-  onMeasured: (x: number, y: number, w: number, h: number) => void;
-}) {
-  const viewRef = useRef<View>(null);
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const zIdx = useSharedValue(0);
-
-  const gesture = Gesture.Pan()
-    .activateAfterLongPress(400)
-    .onStart(() => {
-      scale.value = withSpring(1.05);
-      zIdx.value = 100;
-      runOnJS(onDragStart)();
-    })
-    .onUpdate((e) => {
-      translateX.value = e.translationX;
-      translateY.value = e.translationY;
-      runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
-    })
-    .onEnd(() => {
-      translateX.value = withSpring(0);
-      translateY.value = withSpring(0);
-      scale.value = withSpring(1);
-      zIdx.value = 0;
-      runOnJS(onDragEnd)();
-    });
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    zIndex: zIdx.value,
-    opacity: isDragSource ? 0.85 : 1,
-  }));
-
-  return (
-    <Animated.View style={[{ flex: 1 }, animatedStyle]}>
-      <GestureDetector gesture={gesture}>
-        <View
-          ref={viewRef}
-          style={{ flex: 1 }}
-          onLayout={() => {
-            viewRef.current?.measureInWindow((x, y, w, h) => {
-              onMeasured(x, y, w, h);
-            });
-          }}
-        >
-          <PlayerPanel
-            player={player}
-            color={color}
-            isActive={isActive}
-            rotated={rotated}
-            compact={compact}
-            isSwapSource={isDragSource}
-            isSwapTarget={isDropTarget}
-            onLifeChange={onLifeChange}
-            onPress={onPress}
-            onLongPress={() => {}}
-          />
-        </View>
-      </GestureDetector>
-    </Animated.View>
-  );
-}
 
 export default function PlayScreen() {
   useKeepAwake();
@@ -129,10 +24,8 @@ export default function PlayScreen() {
   const { state, dispatch, canUndo, canRedo } = useGame();
   const { width, height } = useWindowDimensions();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
-
-  const panelRects = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [swapSourceId, setSwapSourceId] = useState<string | null>(null);
 
   const playerCount = state.players.length;
 
@@ -173,78 +66,64 @@ export default function PlayScreen() {
     ]);
   }, [dispatch]);
 
-  // Panels measure themselves via onMeasured callback — no central measurement needed
-
-  const findDropTarget = useCallback((absX: number, absY: number) => {
-    for (let i = 0; i < panelRects.current.length; i++) {
-      const r = panelRects.current[i];
-      if (absX >= r.x && absX <= r.x + r.w && absY >= r.y && absY <= r.y + r.h) {
-        return i;
+  const handlePanelPress = useCallback(
+    (playerId: string) => {
+      if (reorderMode) {
+        if (!swapSourceId) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setSwapSourceId(playerId);
+        } else if (swapSourceId !== playerId) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          const ids = state.players.map((p) => p.id);
+          const fromIdx = ids.indexOf(swapSourceId);
+          const toIdx = ids.indexOf(playerId);
+          const newOrder = [...ids];
+          [newOrder[fromIdx], newOrder[toIdx]] = [newOrder[toIdx], newOrder[fromIdx]];
+          dispatch({ type: "REORDER_PLAYERS", playerIds: newOrder });
+          setSwapSourceId(null);
+        } else {
+          setSwapSourceId(null);
+        }
+      } else {
+        setSelectedPlayerId(playerId);
       }
-    }
-    return null;
+    },
+    [reorderMode, swapSourceId, state.players, dispatch]
+  );
+
+  const handlePanelLongPress = useCallback(
+    (_playerId: string) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      setReorderMode(true);
+      setSwapSourceId(_playerId);
+    },
+    []
+  );
+
+  const exitReorderMode = useCallback(() => {
+    setReorderMode(false);
+    setSwapSourceId(null);
   }, []);
-
-  const handleDragMove = useCallback((absX: number, absY: number) => {
-    const idx = findDropTarget(absX, absY);
-    setDropTargetIdx(idx);
-  }, [findDropTarget]);
-
-  const handleDragEnd = useCallback((playerId: string) => {
-    if (dropTargetIdx !== null) {
-      const targetPlayer = state.players[dropTargetIdx];
-      if (targetPlayer && targetPlayer.id !== playerId) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const ids = state.players.map((p) => p.id);
-        const fromIdx = ids.indexOf(playerId);
-        const newOrder = [...ids];
-        [newOrder[fromIdx], newOrder[dropTargetIdx]] = [newOrder[dropTargetIdx], newOrder[fromIdx]];
-        dispatch({ type: "REORDER_PLAYERS", playerIds: newOrder });
-      }
-    }
-    setDraggingId(null);
-    setDropTargetIdx(null);
-  }, [dropTargetIdx, state.players, dispatch]);
 
   const selectedPlayer = selectedPlayerId
     ? state.players.find((p) => p.id === selectedPlayerId) ?? null
     : null;
 
-  const renderPanel = (player: typeof state.players[0], index: number, rotated: boolean, compact: boolean) => {
-    const isDropTarget = dropTargetIdx !== null && state.players[dropTargetIdx]?.id === player.id && draggingId !== player.id;
-
-    return (
-      <DraggablePanel
-        key={player.id}
-        player={player}
-        index={index}
-        color={colors.playerColors[(player.colorIndex ?? index) % 6]}
-        isActive={state.activePlayerIndex === index}
-        rotated={rotated}
-        compact={compact}
-        isDragSource={draggingId === player.id}
-        isDropTarget={isDropTarget}
-        onLifeChange={(amt) => handleLifeChange(player.id, amt)}
-        onPress={() => {
-          if (!draggingId) setSelectedPlayerId(player.id);
-        }}
-        onDragStart={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          setDraggingId(player.id);
-        }}
-        onDragMove={handleDragMove}
-        onDragEnd={() => handleDragEnd(player.id)}
-        onMeasured={(x, y, w, h) => {
-          const existing = panelRects.current.findIndex((r) => r.id === player.id);
-          if (existing >= 0) {
-            panelRects.current[existing] = { id: player.id, x, y, w, h };
-          } else {
-            panelRects.current.push({ id: player.id, x, y, w, h });
-          }
-        }}
-      />
-    );
-  };
+  const renderPanel = (player: typeof state.players[0], index: number, rotated: boolean, compact: boolean) => (
+    <PlayerPanel
+      key={player.id}
+      player={player}
+      color={colors.playerColors[(player.colorIndex ?? index) % 6]}
+      isActive={!reorderMode && state.activePlayerIndex === index}
+      rotated={!reorderMode && rotated}
+      compact={compact}
+      isSwapSource={swapSourceId === player.id}
+      isSwapTarget={reorderMode && swapSourceId !== null && swapSourceId !== player.id}
+      onLifeChange={(amt) => handleLifeChange(player.id, amt)}
+      onPress={() => handlePanelPress(player.id)}
+      onLongPress={() => handlePanelLongPress(player.id)}
+    />
+  );
 
   const getLayout = () => {
     if (playerCount === 2) {
@@ -275,17 +154,23 @@ export default function PlayScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        {draggingId && (
-          <View style={styles.dragBanner}>
+        {/* Reorder mode banner */}
+        {reorderMode && (
+          <View style={styles.reorderBanner}>
             <Ionicons name="swap-vertical" size={16} color={colors.amber} />
-            <Text style={styles.dragBannerText}>Drop on another player to swap</Text>
+            <Text style={styles.reorderBannerText}>
+              {swapSourceId ? "Tap another player to swap" : "Tap a player to pick up"}
+            </Text>
+            <Pressable onPress={exitReorderMode} style={styles.doneBadge}>
+              <Ionicons name="checkmark" size={16} color={colors.background} />
+              <Text style={styles.doneText}>Done</Text>
+            </Pressable>
           </View>
         )}
 
-        <View style={styles.playArea}>
-          {getLayout()}
-        </View>
+        <View style={styles.playArea}>{getLayout()}</View>
 
+        {/* Control bar */}
         <View style={styles.controlBar}>
           <Pressable
             style={[styles.controlButton, !canUndo && styles.controlButtonDisabled]}
@@ -296,6 +181,16 @@ export default function PlayScreen() {
 
           <Pressable style={styles.controlButton} onPress={handleResetGame}>
             <Ionicons name="refresh" size={20} color={colors.text} />
+          </Pressable>
+
+          <Pressable
+            style={[styles.controlButton, reorderMode && styles.controlButtonActive]}
+            onPress={() => {
+              if (reorderMode) { exitReorderMode(); }
+              else { setReorderMode(true); }
+            }}
+          >
+            <Ionicons name="swap-vertical" size={20} color={reorderMode ? colors.amber : colors.text} />
           </Pressable>
 
           <Pressable style={styles.turnButton} onPress={handleAdvanceTurn}>
@@ -322,6 +217,7 @@ export default function PlayScreen() {
         </View>
       </View>
 
+      {/* Player detail modal */}
       {selectedPlayer && (
         <PlayerDetailModal
           visible={!!selectedPlayer}
@@ -342,20 +238,36 @@ const styles = StyleSheet.create({
   twoPlayerLayout: { flex: 1, flexDirection: "column" },
   gridLayout: { flex: 1, flexDirection: "column" },
   gridRow: { flex: 1, flexDirection: "row" },
-  dragBanner: {
+  reorderBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.amber + "22",
     borderBottomWidth: 1,
     borderBottomColor: colors.amber,
   },
-  dragBannerText: {
+  reorderBannerText: {
+    flex: 1,
     color: colors.amber,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     fontWeight: "600",
+  },
+  doneBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.amber,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+  },
+  doneText: {
+    color: colors.background,
+    fontSize: fontSize.md,
+    fontWeight: "bold",
   },
   controlBar: {
     flexDirection: "row",
@@ -375,6 +287,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceLight,
     justifyContent: "center",
     alignItems: "center",
+  },
+  controlButtonActive: {
+    backgroundColor: colors.amberDark + "33",
+    borderWidth: 1,
+    borderColor: colors.amber,
   },
   controlButtonDisabled: { opacity: 0.3 },
   endGameButton: {
