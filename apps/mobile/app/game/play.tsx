@@ -24,6 +24,95 @@ import { PlayerPanel } from "../../src/components/PlayerPanel";
 import { PlayerDetailModal } from "../../src/components/PlayerDetailModal";
 import { colors, spacing, fontSize } from "../../src/constants/theme";
 
+// Draggable wrapper component so useAnimatedStyle is called at component level
+function DraggablePanel({
+  player,
+  index,
+  color,
+  isActive,
+  rotated,
+  compact,
+  isDragSource,
+  isDropTarget,
+  onLifeChange,
+  onPress,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
+  onMeasure,
+}: {
+  player: any;
+  index: number;
+  color: string;
+  isActive: boolean;
+  rotated: boolean;
+  compact: boolean;
+  isDragSource: boolean;
+  isDropTarget: boolean;
+  onLifeChange: (amt: number) => void;
+  onPress: () => void;
+  onDragStart: () => void;
+  onDragMove: (absX: number, absY: number) => void;
+  onDragEnd: () => void;
+  onMeasure: () => void;
+}) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const zIdx = useSharedValue(0);
+
+  const gesture = Gesture.Pan()
+    .activateAfterLongPress(400)
+    .onStart(() => {
+      scale.value = withSpring(1.05);
+      zIdx.value = 100;
+      runOnJS(onDragStart)();
+    })
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+      translateY.value = e.translationY;
+      runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
+    })
+    .onEnd(() => {
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+      scale.value = withSpring(1);
+      zIdx.value = 0;
+      runOnJS(onDragEnd)();
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+    zIndex: zIdx.value,
+    opacity: isDragSource ? 0.85 : 1,
+  }));
+
+  return (
+    <Animated.View style={[{ flex: 1 }, animatedStyle]}>
+      <GestureDetector gesture={gesture}>
+        <View style={{ flex: 1 }} onLayout={onMeasure}>
+          <PlayerPanel
+            player={player}
+            color={color}
+            isActive={isActive}
+            rotated={rotated}
+            compact={compact}
+            isSwapSource={isDragSource}
+            isSwapTarget={isDropTarget}
+            onLifeChange={onLifeChange}
+            onPress={onPress}
+            onLongPress={() => {}}
+          />
+        </View>
+      </GestureDetector>
+    </Animated.View>
+  );
+}
+
 export default function PlayScreen() {
   useKeepAwake();
   const router = useRouter();
@@ -31,18 +120,11 @@ export default function PlayScreen() {
   const { state, dispatch, canUndo, canRedo } = useGame();
   const { width, height } = useWindowDimensions();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-
-  // Drag state
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
-  const dragX = useSharedValue(0);
-  const dragY = useSharedValue(0);
-  const dragScale = useSharedValue(1);
-  const isDragging = useSharedValue(false);
 
-  // Store panel positions for hit-testing
-  const panelPositions = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
-  const playAreaRef = useRef<View>(null);
+  const panelRects = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
+  const panelRefs = useRef<Record<string, View | null>>({});
 
   const playerCount = state.players.length;
 
@@ -83,27 +165,37 @@ export default function PlayScreen() {
     ]);
   }, [dispatch]);
 
-  // Drag callbacks
-  const onDragStart = useCallback((playerId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setDraggingId(playerId);
-  }, []);
+  const measureAllPanels = useCallback(() => {
+    const rects: typeof panelRects.current = [];
+    state.players.forEach((p) => {
+      const ref = panelRefs.current[p.id];
+      if (ref) {
+        ref.measureInWindow((x, y, w, h) => {
+          rects.push({ id: p.id, x, y, w, h });
+          if (rects.length === state.players.length) {
+            panelRects.current = rects;
+          }
+        });
+      }
+    });
+  }, [state.players]);
 
-  const onDragMove = useCallback((absX: number, absY: number) => {
-    // Find which panel the finger is over
-    const positions = panelPositions.current;
-    let found = -1;
-    for (let i = 0; i < positions.length; i++) {
-      const p = positions[i];
-      if (absX >= p.x && absX <= p.x + p.w && absY >= p.y && absY <= p.y + p.h) {
-        found = i;
-        break;
+  const findDropTarget = useCallback((absX: number, absY: number) => {
+    for (let i = 0; i < panelRects.current.length; i++) {
+      const r = panelRects.current[i];
+      if (absX >= r.x && absX <= r.x + r.w && absY >= r.y && absY <= r.y + r.h) {
+        return i;
       }
     }
-    setDropTargetIdx(found >= 0 ? found : null);
+    return null;
   }, []);
 
-  const onDragEnd = useCallback((playerId: string) => {
+  const handleDragMove = useCallback((absX: number, absY: number) => {
+    const idx = findDropTarget(absX, absY);
+    setDropTargetIdx(idx);
+  }, [findDropTarget]);
+
+  const handleDragEnd = useCallback((playerId: string) => {
     if (dropTargetIdx !== null) {
       const targetPlayer = state.players[dropTargetIdx];
       if (targetPlayer && targetPlayer.id !== playerId) {
@@ -123,117 +215,44 @@ export default function PlayScreen() {
     ? state.players.find((p) => p.id === selectedPlayerId) ?? null
     : null;
 
-  // Measure panel positions after layout
-  const measurePanels = useCallback(() => {
-    if (!playAreaRef.current) return;
-    playAreaRef.current.measureInWindow((areaX, areaY) => {
-      // Calculate positions based on grid layout
-      const safeTop = insets.top;
-      const controlBarHeight = 56;
-      const availableHeight = height - safeTop - controlBarHeight - insets.bottom;
-      const availableWidth = width;
-
-      const positions: typeof panelPositions.current = [];
-
-      if (playerCount === 2) {
-        const panelH = availableHeight / 2;
-        state.players.forEach((p, i) => {
-          positions.push({
-            id: p.id,
-            x: 0,
-            y: safeTop + i * panelH,
-            w: availableWidth,
-            h: panelH,
-          });
-        });
-      } else {
-        const cols = 2;
-        const rows = Math.ceil(playerCount / cols);
-        const panelW = availableWidth / cols;
-        const panelH = availableHeight / rows;
-        state.players.forEach((p, i) => {
-          const row = Math.floor(i / cols);
-          const col = i % cols;
-          positions.push({
-            id: p.id,
-            x: col * panelW,
-            y: safeTop + row * panelH,
-            w: panelW,
-            h: panelH,
-          });
-        });
-      }
-      panelPositions.current = positions;
-    });
-  }, [state.players, playerCount, width, height, insets]);
-
   const renderPanel = (player: typeof state.players[0], index: number, rotated: boolean, compact: boolean) => {
-    const isDragSource = draggingId === player.id;
     const isDropTarget = dropTargetIdx !== null && state.players[dropTargetIdx]?.id === player.id && draggingId !== player.id;
 
-    const panelContent = (
-      <PlayerPanel
+    return (
+      <DraggablePanel
         key={player.id}
         player={player}
+        index={index}
         color={colors.playerColors[(player.colorIndex ?? index) % 6]}
         isActive={state.activePlayerIndex === index}
         rotated={rotated}
         compact={compact}
-        isSwapSource={isDragSource}
-        isSwapTarget={isDropTarget}
+        isDragSource={draggingId === player.id}
+        isDropTarget={isDropTarget}
         onLifeChange={(amt) => handleLifeChange(player.id, amt)}
         onPress={() => {
           if (!draggingId) setSelectedPlayerId(player.id);
         }}
-        onLongPress={() => {}}
+        onDragStart={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          setDraggingId(player.id);
+        }}
+        onDragMove={handleDragMove}
+        onDragEnd={() => handleDragEnd(player.id)}
+        onMeasure={() => {
+          const ref = panelRefs.current[player.id];
+          if (ref) {
+            ref.measureInWindow((x, y, w, h) => {
+              const existing = panelRects.current.findIndex((r) => r.id === player.id);
+              if (existing >= 0) {
+                panelRects.current[existing] = { id: player.id, x, y, w, h };
+              } else {
+                panelRects.current.push({ id: player.id, x, y, w, h });
+              }
+            });
+          }
+        }}
       />
-    );
-
-    // Wrap each panel in a gesture detector for drag
-    const gesture = Gesture.Pan()
-      .activateAfterLongPress(400)
-      .onStart(() => {
-        isDragging.value = true;
-        dragX.value = 0;
-        dragY.value = 0;
-        dragScale.value = withSpring(1.05);
-        runOnJS(onDragStart)(player.id);
-      })
-      .onUpdate((e) => {
-        dragX.value = e.translationX;
-        dragY.value = e.translationY;
-        runOnJS(onDragMove)(e.absoluteX, e.absoluteY);
-      })
-      .onEnd(() => {
-        isDragging.value = false;
-        dragX.value = withSpring(0);
-        dragY.value = withSpring(0);
-        dragScale.value = withSpring(1);
-        runOnJS(onDragEnd)(player.id);
-      });
-
-    const animatedStyle = useAnimatedStyle(() => {
-      if (draggingId !== player.id) return {};
-      return {
-        transform: [
-          { translateX: dragX.value },
-          { translateY: dragY.value },
-          { scale: dragScale.value },
-        ],
-        zIndex: 100,
-        elevation: 10,
-        opacity: 0.9,
-      };
-    });
-
-    return (
-      <Animated.View key={player.id} style={[{ flex: 1 }, animatedStyle]}>
-        <GestureDetector gesture={gesture}>
-          <View style={{ flex: 1 }} onLayout={() => measurePanels()}>
-            {panelContent}
-          </View>
-        </GestureDetector>
-      </Animated.View>
     );
   };
 
@@ -247,28 +266,13 @@ export default function PlayScreen() {
       );
     }
 
-    if (playerCount <= 4) {
-      const rows = [];
-      for (let i = 0; i < playerCount; i += 2) {
-        const rowPlayers = state.players.slice(i, i + 2);
-        rows.push(
-          <View key={i} style={styles.gridRow}>
-            {rowPlayers.map((player, j) =>
-              renderPanel(player, i + j, i === 0, true)
-            )}
-          </View>
-        );
-      }
-      return <View style={styles.gridLayout}>{rows}</View>;
-    }
-
     const rows = [];
     for (let i = 0; i < playerCount; i += 2) {
       const rowPlayers = state.players.slice(i, Math.min(i + 2, playerCount));
       rows.push(
         <View key={i} style={styles.gridRow}>
           {rowPlayers.map((player, j) =>
-            renderPanel(player, i + j, i === 0, true)
+            renderPanel(player, i + j, i === 0 && playerCount > 2, playerCount > 2)
           )}
         </View>
       );
@@ -281,7 +285,6 @@ export default function PlayScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        {/* Drag hint banner */}
         {draggingId && (
           <View style={styles.dragBanner}>
             <Ionicons name="swap-vertical" size={16} color={colors.amber} />
@@ -289,11 +292,10 @@ export default function PlayScreen() {
           </View>
         )}
 
-        <View ref={playAreaRef} style={styles.playArea} onLayout={() => measurePanels()}>
+        <View style={styles.playArea} onLayout={measureAllPanels}>
           {getLayout()}
         </View>
 
-        {/* Control bar */}
         <View style={styles.controlBar}>
           <Pressable
             style={[styles.controlButton, !canUndo && styles.controlButtonDisabled]}
@@ -330,7 +332,6 @@ export default function PlayScreen() {
         </View>
       </View>
 
-      {/* Player detail modal */}
       {selectedPlayer && (
         <PlayerDetailModal
           visible={!!selectedPlayer}
