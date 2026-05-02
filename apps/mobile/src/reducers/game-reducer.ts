@@ -10,6 +10,7 @@ import {
 export type PlayerState = {
   id: string;
   name: string;
+  colorIndex: number;
   lifeTotal: number;
   commanderDamage: Record<string, number>; // sourcePlayerId → damage
   poisonCounters: number;
@@ -90,10 +91,11 @@ export type PlayerSetupData = {
   bracketUsed?: number;
 };
 
-export function createPlayer(name: string, startingLife: number, setup?: Partial<PlayerSetupData>): PlayerState {
+export function createPlayer(name: string, startingLife: number, colorIndex: number, setup?: Partial<PlayerSetupData>): PlayerState {
   return {
     id: generateId(),
     name,
+    colorIndex,
     lifeTotal: startingLife,
     commanderDamage: {},
     poisonCounters: 0,
@@ -119,7 +121,7 @@ export function createInitialState(
 ): GameState {
   const startingLife = getStartingLife(format);
   return {
-    players: playerData.map((p) => createPlayer(p.name, startingLife, p)),
+    players: playerData.map((p, i) => createPlayer(p.name, startingLife, i, p)),
     currentTurn: 1,
     activePlayerIndex: 0,
     format,

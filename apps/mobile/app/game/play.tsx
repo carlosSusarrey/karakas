@@ -63,12 +63,18 @@ export default function PlayScreen() {
     ]);
   }, [dispatch]);
 
-  // Long-press to start swap, tap another to complete
+  const [reorderMode, setReorderMode] = useState(false);
+
+  // Long-press to enter reorder mode, then tap pairs to swap
   const handlePanelPress = useCallback(
     (playerId: string) => {
-      if (swapSourceId) {
-        if (swapSourceId !== playerId) {
-          // Swap the two players
+      if (reorderMode) {
+        if (!swapSourceId) {
+          // First tap in reorder mode — select source
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setSwapSourceId(playerId);
+        } else if (swapSourceId !== playerId) {
+          // Second tap — swap and stay in reorder mode
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           const ids = state.players.map((p) => p.id);
           const fromIdx = ids.indexOf(swapSourceId);
@@ -76,22 +82,31 @@ export default function PlayScreen() {
           const newOrder = [...ids];
           [newOrder[fromIdx], newOrder[toIdx]] = [newOrder[toIdx], newOrder[fromIdx]];
           dispatch({ type: "REORDER_PLAYERS", playerIds: newOrder });
+          setSwapSourceId(null); // Clear selection but stay in reorder mode
+        } else {
+          // Tapped same player — deselect
+          setSwapSourceId(null);
         }
-        setSwapSourceId(null);
       } else {
         setSelectedPlayerId(playerId);
       }
     },
-    [swapSourceId, state.players, dispatch]
+    [reorderMode, swapSourceId, state.players, dispatch]
   );
 
   const handlePanelLongPress = useCallback(
     (playerId: string) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      setReorderMode(true);
       setSwapSourceId(playerId);
     },
     []
   );
+
+  const exitReorderMode = useCallback(() => {
+    setReorderMode(false);
+    setSwapSourceId(null);
+  }, []);
 
   const selectedPlayer = selectedPlayerId
     ? state.players.find((p) => p.id === selectedPlayerId) ?? null
@@ -101,12 +116,12 @@ export default function PlayScreen() {
     <PlayerPanel
       key={player.id}
       player={player}
-      color={colors.playerColors[index % 6]}
+      color={colors.playerColors[player.colorIndex % 6]}
       isActive={state.activePlayerIndex === index}
       rotated={rotated}
       compact={compact}
       isSwapSource={swapSourceId === player.id}
-      isSwapTarget={swapSourceId !== null && swapSourceId !== player.id}
+      isSwapTarget={reorderMode && swapSourceId !== player.id}
       onLifeChange={(amt) => handleLifeChange(player.id, amt)}
       onPress={() => handlePanelPress(player.id)}
       onLongPress={() => handlePanelLongPress(player.id)}
@@ -157,14 +172,15 @@ export default function PlayScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.container}>
-        {/* Swap mode banner */}
-        {swapSourceId && (
+        {/* Reorder mode banner */}
+        {reorderMode && (
           <View style={styles.swapBanner}>
             <Text style={styles.swapBannerText}>
-              Tap another player to swap positions
+              {swapSourceId ? "Tap another player to swap" : "Tap a player to select"}
             </Text>
-            <Pressable onPress={() => setSwapSourceId(null)}>
-              <Text style={styles.swapCancelText}>Cancel</Text>
+            <Pressable onPress={exitReorderMode} style={styles.doneBadge}>
+              <Ionicons name="checkmark" size={18} color={colors.background} />
+              <Text style={styles.doneText}>Done</Text>
             </Pressable>
           </View>
         )}
@@ -260,9 +276,19 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: "600",
   },
-  swapCancelText: {
-    color: colors.textSecondary,
+  doneBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.amber,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+  },
+  doneText: {
+    color: colors.background,
     fontSize: fontSize.md,
+    fontWeight: "bold",
   },
   controlBar: {
     flexDirection: "row",
