@@ -13,7 +13,10 @@ type Props = {
   rotated?: boolean;
   onLifeChange: (amount: number) => void;
   onPress: () => void;
+  onLongPress?: () => void;
   compact?: boolean;
+  isSwapSource?: boolean;
+  isSwapTarget?: boolean;
 };
 
 function PlayerPanelInner({
@@ -23,7 +26,10 @@ function PlayerPanelInner({
   rotated = false,
   onLifeChange,
   onPress,
+  onLongPress,
   compact = false,
+  isSwapSource = false,
+  isSwapTarget = false,
 }: Props) {
   const longPressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -80,13 +86,15 @@ function PlayerPanelInner({
   const iconSize = compact ? 20 : 26;
 
   return (
-    <Pressable onPress={onPress} style={{ flex: 1 }}>
+    <Pressable onPress={onPress} onLongPress={onLongPress} delayLongPress={500} style={{ flex: 1 }}>
       <View
         style={[
           styles.panel,
           { backgroundColor: color },
           isActive && styles.activePanel,
           specialBorder && { borderWidth: 3, borderColor: specialBorder },
+          isSwapSource && styles.swapSourcePanel,
+          isSwapTarget && styles.swapTargetPanel,
           player.isEliminated && styles.eliminatedPanel,
           rotated && styles.rotated,
         ]}
@@ -173,8 +181,15 @@ function PlayerPanelInner({
           </View>
         )}
 
+        {/* Swap source overlay */}
+        {isSwapSource && (
+          <View style={styles.swapOverlay}>
+            <Ionicons name="swap-vertical" size={36} color={colors.amber} />
+          </View>
+        )}
+
         {/* Eliminated overlay */}
-        {player.isEliminated && (
+        {player.isEliminated && !isSwapSource && (
           <View style={styles.eliminatedOverlay}>
             <Ionicons name="close-circle" size={40} color={colors.red} />
             <Text style={styles.eliminatedLabel}>ELIMINATED</Text>
@@ -203,6 +218,22 @@ const styles = StyleSheet.create({
   },
   eliminatedPanel: {
     opacity: 0.4,
+  },
+  swapSourcePanel: {
+    borderWidth: 3,
+    borderColor: colors.amber,
+    opacity: 0.8,
+  },
+  swapTargetPanel: {
+    borderWidth: 2,
+    borderColor: colors.amber + "66",
+    borderStyle: "dashed",
+  },
+  swapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   rotated: {
     transform: [{ rotate: "180deg" }],
