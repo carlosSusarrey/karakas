@@ -116,7 +116,7 @@ export default function PlayScreen() {
     <PlayerPanel
       key={player.id}
       player={player}
-      color={colors.playerColors[player.colorIndex % 6]}
+      color={colors.playerColors[(player.colorIndex ?? index) % 6]}
       isActive={state.activePlayerIndex === index}
       rotated={rotated}
       compact={compact}
