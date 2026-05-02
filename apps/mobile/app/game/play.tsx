@@ -39,7 +39,7 @@ function DraggablePanel({
   onDragStart,
   onDragMove,
   onDragEnd,
-  onMeasure,
+  onMeasured,
 }: {
   player: any;
   index: number;
@@ -54,8 +54,9 @@ function DraggablePanel({
   onDragStart: () => void;
   onDragMove: (absX: number, absY: number) => void;
   onDragEnd: () => void;
-  onMeasure: () => void;
+  onMeasured: (x: number, y: number, w: number, h: number) => void;
 }) {
+  const viewRef = useRef<View>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -94,7 +95,15 @@ function DraggablePanel({
   return (
     <Animated.View style={[{ flex: 1 }, animatedStyle]}>
       <GestureDetector gesture={gesture}>
-        <View style={{ flex: 1 }} onLayout={onMeasure}>
+        <View
+          ref={viewRef}
+          style={{ flex: 1 }}
+          onLayout={() => {
+            viewRef.current?.measureInWindow((x, y, w, h) => {
+              onMeasured(x, y, w, h);
+            });
+          }}
+        >
           <PlayerPanel
             player={player}
             color={color}
@@ -124,7 +133,6 @@ export default function PlayScreen() {
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
 
   const panelRects = useRef<{ id: string; x: number; y: number; w: number; h: number }[]>([]);
-  const panelRefs = useRef<Record<string, View | null>>({});
 
   const playerCount = state.players.length;
 
@@ -165,20 +173,7 @@ export default function PlayScreen() {
     ]);
   }, [dispatch]);
 
-  const measureAllPanels = useCallback(() => {
-    const rects: typeof panelRects.current = [];
-    state.players.forEach((p) => {
-      const ref = panelRefs.current[p.id];
-      if (ref) {
-        ref.measureInWindow((x, y, w, h) => {
-          rects.push({ id: p.id, x, y, w, h });
-          if (rects.length === state.players.length) {
-            panelRects.current = rects;
-          }
-        });
-      }
-    });
-  }, [state.players]);
+  // Panels measure themselves via onMeasured callback — no central measurement needed
 
   const findDropTarget = useCallback((absX: number, absY: number) => {
     for (let i = 0; i < panelRects.current.length; i++) {
@@ -239,17 +234,12 @@ export default function PlayScreen() {
         }}
         onDragMove={handleDragMove}
         onDragEnd={() => handleDragEnd(player.id)}
-        onMeasure={() => {
-          const ref = panelRefs.current[player.id];
-          if (ref) {
-            ref.measureInWindow((x, y, w, h) => {
-              const existing = panelRects.current.findIndex((r) => r.id === player.id);
-              if (existing >= 0) {
-                panelRects.current[existing] = { id: player.id, x, y, w, h };
-              } else {
-                panelRects.current.push({ id: player.id, x, y, w, h });
-              }
-            });
+        onMeasured={(x, y, w, h) => {
+          const existing = panelRects.current.findIndex((r) => r.id === player.id);
+          if (existing >= 0) {
+            panelRects.current[existing] = { id: player.id, x, y, w, h };
+          } else {
+            panelRects.current.push({ id: player.id, x, y, w, h });
           }
         }}
       />
@@ -292,7 +282,7 @@ export default function PlayScreen() {
           </View>
         )}
 
-        <View style={styles.playArea} onLayout={measureAllPanels}>
+        <View style={styles.playArea}>
           {getLayout()}
         </View>
 
