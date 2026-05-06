@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "./jwt";
+import { getSession } from "./session";
 
 /**
- * Extract and verify the Bearer token from a request.
- * Returns the userId if valid, null if not.
+ * Extract and verify the Bearer token from a request, or fall back to the
+ * cookie-based web session. This lets the same /api/v1/* endpoints serve
+ * both the mobile app (Bearer JWT) and the web app (httpOnly cookie).
  */
 export async function authenticateRequest(
   request: NextRequest
 ): Promise<string | null> {
   const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    const result = await verifyAccessToken(token);
+    if (result?.userId) return result.userId;
+  }
 
-  const token = authHeader.slice(7);
-  const result = await verifyAccessToken(token);
-  return result?.userId ?? null;
+  return await getSession();
 }
 
 /**
