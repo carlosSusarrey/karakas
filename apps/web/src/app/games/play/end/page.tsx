@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGame } from "@/contexts/game-context";
+import { isCommanderFormat, hasBrackets } from "@/types/mtg";
+import {
+  PlayerDeckFields,
+  type PlayerDeckEdit,
+} from "@/components/player-deck-fields";
+import { saveNewDeckFromGame } from "@/app/games/new/actions";
+import type { MtgFormat } from "@/types/mtg";
 
 export default function EndGameScreen() {
   const router = useRouter();
@@ -11,6 +18,29 @@ export default function EndGameScreen() {
   const [isDraw, setIsDraw] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const showDeckSection =
+    isCommanderFormat(state.format) || hasBrackets(state.format);
+
+  // Initialize deck edits from game state
+  const [deckEdits, setDeckEdits] = useState<Record<string, PlayerDeckEdit>>(
+    {}
+  );
+
+  useEffect(() => {
+    if (hydrated && hasActiveGame && Object.keys(deckEdits).length === 0) {
+      const initial: Record<string, PlayerDeckEdit> = {};
+      for (const p of state.players) {
+        initial[p.id] = {
+          commanderUsed1: p.commanderUsed1 || "",
+          commanderUsed2: p.commanderUsed2 || "",
+          bracketUsed: p.bracketUsed?.toString() || "",
+          saveAsNewDeck: false,
+        };
+      }
+      setDeckEdits(initial);
+    }
+  }, [hydrated, hasActiveGame, state.players, deckEdits]);
 
   useEffect(() => {
     if (hydrated && !hasActiveGame) {
@@ -21,7 +51,7 @@ export default function EndGameScreen() {
   if (!hydrated || !hasActiveGame) {
     return (
       <div className="min-h-screen bg-zinc-950 text-zinc-400 flex items-center justify-center">
-        Loading…
+        Loading...
       </div>
     );
   }
@@ -54,6 +84,72 @@ export default function EndGameScreen() {
 
     setSaving(true);
     try {
+      // Build per-player deck overrides and handle "save as new deck"
+      const playerOverrides: Record<
+        string,
+        {
+          commanderUsed1?: string;
+          commanderUsed2?: string;
+          bracketUsed?: number;
+          deckId?: string;
+          playgroupPlayerDeckId?: string;
+        }
+      > = {};
+
+      for (const p of state.players) {
+        const edit = deckEdits[p.id];
+        if (!edit) continue;
+
+        const overrides: (typeof playerOverrides)[string] = {};
+
+        if (edit.commanderUsed1)
+          overrides.commanderUsed1 = edit.commanderUsed1;
+        if (edit.commanderUsed2)
+          overrides.commanderUsed2 = edit.commanderUsed2;
+        if (edit.bracketUsed)
+          overrides.bracketUsed = parseInt(edit.bracketUsed);
+
+        // Save as new deck if requested
+        if (
+          edit.saveAsNewDeck &&
+          edit.commanderUsed1 &&
+          !p.serverDeckId &&
+          state.playgroupId &&
+          (p.serverUserId || p.serverPlaygroupPlayerId)
+        ) {
+          const saveResult = await saveNewDeckFromGame({
+            playgroupId: state.playgroupId,
+            playerType: p.serverUserId
+              ? "playgroup_member"
+              : "playgroup_player",
+            userId: p.serverUserId,
+            playgroupPlayerId: p.serverPlaygroupPlayerId,
+            format: state.format as MtgFormat,
+            commander1: edit.commanderUsed1,
+            commander2: edit.commanderUsed2 || undefined,
+            bracket: edit.bracketUsed
+              ? parseInt(edit.bracketUsed)
+              : undefined,
+          });
+
+          if ("error" in saveResult) {
+            setError(
+              `Failed to save deck for ${p.name}: ${saveResult.error}`
+            );
+            setSaving(false);
+            return;
+          }
+
+          if (saveResult.deckType === "deck") {
+            overrides.deckId = saveResult.deckId;
+          } else {
+            overrides.playgroupPlayerDeckId = saveResult.deckId;
+          }
+        }
+
+        playerOverrides[p.id] = overrides;
+      }
+
       const createRes = await fetch("/api/v1/games", {
         method: "POST",
         credentials: "same-origin",
@@ -61,25 +157,37 @@ export default function EndGameScreen() {
         body: JSON.stringify({
           format: state.format,
           playgroupId: state.playgroupId,
-          players: state.players.map((p) => ({
-            userId: p.serverUserId || undefined,
-            playgroupPlayerId: p.serverPlaygroupPlayerId || undefined,
-            deckId: p.serverDeckId || undefined,
-            guestName: !p.serverUserId && !p.serverPlaygroupPlayerId ? p.name : undefined,
-            commanderUsed1: p.commanderUsed1 || undefined,
-            commanderUsed2: p.commanderUsed2 || undefined,
-            bracketUsed: p.bracketUsed || undefined,
-          })),
+          players: state.players.map((p) => {
+            const ov = playerOverrides[p.id] || {};
+            return {
+              userId: p.serverUserId || undefined,
+              playgroupPlayerId: p.serverPlaygroupPlayerId || undefined,
+              deckId: ov.deckId || p.serverDeckId || undefined,
+              playgroupPlayerDeckId: ov.playgroupPlayerDeckId || undefined,
+              guestName:
+                !p.serverUserId && !p.serverPlaygroupPlayerId
+                  ? p.name
+                  : undefined,
+              commanderUsed1:
+                ov.commanderUsed1 || p.commanderUsed1 || undefined,
+              commanderUsed2:
+                ov.commanderUsed2 || p.commanderUsed2 || undefined,
+              bracketUsed: ov.bracketUsed ?? p.bracketUsed ?? undefined,
+            };
+          }),
         }),
       });
-      if (!createRes.ok) throw new Error(`Failed to create game (${createRes.status})`);
+      if (!createRes.ok)
+        throw new Error(`Failed to create game (${createRes.status})`);
       const { game } = (await createRes.json()) as {
         game: { id: string; players: { id: string }[] };
       };
 
       let serverWinnerId: string | null = null;
       if (!isDraw && winnerId) {
-        const winnerIndex = state.players.findIndex((p) => p.id === winnerId);
+        const winnerIndex = state.players.findIndex(
+          (p) => p.id === winnerId
+        );
         if (winnerIndex >= 0 && game.players[winnerIndex]) {
           serverWinnerId = game.players[winnerIndex].id;
         }
@@ -95,7 +203,8 @@ export default function EndGameScreen() {
           totalTurns: state.currentTurn,
         }),
       });
-      if (!endRes.ok) throw new Error(`Failed to save result (${endRes.status})`);
+      if (!endRes.ok)
+        throw new Error(`Failed to save result (${endRes.status})`);
 
       endActiveGame();
       router.replace(`/games/${game.id}`);
@@ -159,8 +268,12 @@ export default function EndGameScreen() {
                       : "border-zinc-800 bg-zinc-900 hover:bg-zinc-800",
                   ].join(" ")}
                 >
-                  <span className="flex-1 text-zinc-100 text-base">{player.name}</span>
-                  <span className="text-zinc-400 text-sm mr-3">{player.lifeTotal} life</span>
+                  <span className="flex-1 text-zinc-100 text-base">
+                    {player.name}
+                  </span>
+                  <span className="text-zinc-400 text-sm mr-3">
+                    {player.lifeTotal} life
+                  </span>
                   {winnerId === player.id && (
                     <span className="text-amber-500 text-xl">✓</span>
                   )}
@@ -182,8 +295,55 @@ export default function EndGameScreen() {
                   className="flex justify-between p-3 border-b border-zinc-800"
                 >
                   <span className="text-zinc-500">{player.name}</span>
-                  <span className="text-zinc-500 text-sm">Turn {player.eliminatedTurn}</span>
+                  <span className="text-zinc-500 text-sm">
+                    Turn {player.eliminatedTurn}
+                  </span>
                 </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Deck Info Section */}
+        {showDeckSection && Object.keys(deckEdits).length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-base font-bold text-zinc-400 uppercase tracking-wider mb-3">
+              Deck Info
+            </h2>
+            <p className="text-xs text-zinc-500 mb-3">
+              Add or update the decks used in this game before saving.
+            </p>
+            <div className="space-y-2">
+              {state.players.map((player) => (
+                <PlayerDeckFields
+                  key={player.id}
+                  playerId={player.id}
+                  playerName={player.name}
+                  format={state.format}
+                  deckName={
+                    player.serverDeckId
+                      ? player.commanderUsed1 || "Selected deck"
+                      : null
+                  }
+                  edit={
+                    deckEdits[player.id] || {
+                      commanderUsed1: "",
+                      commanderUsed2: "",
+                      bracketUsed: "",
+                      saveAsNewDeck: false,
+                    }
+                  }
+                  onChange={(edit) =>
+                    setDeckEdits((prev) => ({
+                      ...prev,
+                      [player.id]: edit,
+                    }))
+                  }
+                  canSaveDeck={
+                    !!state.playgroupId &&
+                    !!(player.serverUserId || player.serverPlaygroupPlayerId)
+                  }
+                />
               ))}
             </div>
           </section>
@@ -201,7 +361,7 @@ export default function EndGameScreen() {
           disabled={saving}
           className="w-full py-3 rounded-xl bg-amber-500 text-zinc-950 font-bold text-lg disabled:opacity-60 hover:bg-amber-400 transition-colors"
         >
-          {saving ? "Saving…" : "Save & End Game"}
+          {saving ? "Saving..." : "Save & End Game"}
         </button>
 
         <button
