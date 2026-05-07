@@ -22,12 +22,20 @@ export default async function HomePage() {
             on turn 4 again.
           </p>
           {user ? (
-            <Link
-              href="/playgroups"
-              className="inline-block bg-amber-600 hover:bg-amber-500 text-white text-lg px-8 py-3 rounded-lg transition-colors"
-            >
-              Go to Playgroups
-            </Link>
+            <div className="flex gap-3 justify-center flex-wrap">
+              <Link
+                href="/games/play/setup"
+                className="inline-block bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold text-lg px-8 py-3 rounded-lg transition-colors"
+              >
+                Play Live Game
+              </Link>
+              <Link
+                href="/playgroups"
+                className="inline-block border border-zinc-700 hover:border-zinc-500 text-zinc-300 text-lg px-8 py-3 rounded-lg transition-colors"
+              >
+                Playgroups
+              </Link>
+            </div>
           ) : (
             <div className="flex gap-4 justify-center">
               <Link

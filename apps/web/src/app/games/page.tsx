@@ -130,12 +130,20 @@ export default async function GamesPage({
                   : "Track and view your game history"}
               </p>
             </div>
-            <Link
-              href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/playgroups"}
-              className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              {playgroupId ? "Start New Game" : "Go to Playgroups"}
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/games/play/setup"
+                className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold px-4 py-2 rounded-lg transition-colors"
+              >
+                Play Live
+              </Link>
+              <Link
+                href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/playgroups"}
+                className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                {playgroupId ? "Log Finished" : "Playgroups"}
+              </Link>
+            </div>
           </div>
 
           {/* Playgroup Filter */}
