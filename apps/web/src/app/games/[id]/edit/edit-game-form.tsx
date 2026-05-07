@@ -5,9 +5,15 @@ import { useRouter } from "next/navigation";
 import { updateGame, deleteGame } from "./actions";
 import {
   FORMAT_LABELS,
+  isCommanderFormat,
+  hasBrackets,
   type MtgFormat,
 } from "@/types/mtg";
 import { AlertMessage } from "@/components/alert-message";
+import {
+  PlayerDeckFields,
+  type PlayerDeckEdit,
+} from "@/components/player-deck-fields";
 
 type GamePlayer = {
   id: string;
@@ -23,6 +29,8 @@ type GamePlayer = {
   eliminatedTurn: number | null;
   user: { id: string; username: string } | null;
   playgroupPlayer: { id: string; name: string } | null;
+  deck: { id: string; name: string } | null;
+  playgroupPlayerDeck: { id: string; name: string } | null;
 };
 
 type Game = {
@@ -52,6 +60,9 @@ export function EditGameForm({ game }: Props) {
     new Date(game.playedAt).toISOString().slice(0, 16)
   );
 
+  const showDeckSection =
+    isCommanderFormat(game.format) || hasBrackets(game.format);
+
   // Player results
   const [players, setPlayers] = useState(
     game.players.map((p) => ({
@@ -64,10 +75,32 @@ export function EditGameForm({ game }: Props) {
     }))
   );
 
+  // Deck edits per player
+  const [deckEdits, setDeckEdits] = useState<Record<string, PlayerDeckEdit>>(
+    () => {
+      const initial: Record<string, PlayerDeckEdit> = {};
+      for (const p of game.players) {
+        initial[p.id] = {
+          commanderUsed1: p.commanderUsed1 || "",
+          commanderUsed2: p.commanderUsed2 || "",
+          bracketUsed: p.bracketUsed?.toString() || "",
+          saveAsNewDeck: false,
+        };
+      }
+      return initial;
+    }
+  );
+
   function getPlayerName(player: GamePlayer) {
     if (player.user) return player.user.username;
     if (player.playgroupPlayer) return player.playgroupPlayer.name;
     return player.guestName || "Unknown Player";
+  }
+
+  function getDeckDisplayName(player: GamePlayer): string | null {
+    if (player.deck) return player.deck.name;
+    if (player.playgroupPlayerDeck) return player.playgroupPlayerDeck.name;
+    return null;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -80,13 +113,19 @@ export function EditGameForm({ game }: Props) {
         totalTurns,
         notes: notes || null,
         playedAt: new Date(playedAt),
-        players: players.map((p) => ({
-          id: p.id,
-          placement: p.placement,
-          isWinner: p.isWinner,
-          isFirstOut: p.isFirstOut,
-          eliminatedTurn: p.eliminatedTurn,
-        })),
+        players: players.map((p) => {
+          const de = deckEdits[p.id];
+          return {
+            id: p.id,
+            placement: p.placement,
+            isWinner: p.isWinner,
+            isFirstOut: p.isFirstOut,
+            eliminatedTurn: p.eliminatedTurn,
+            commanderUsed1: de?.commanderUsed1 || null,
+            commanderUsed2: de?.commanderUsed2 || null,
+            bracketUsed: de?.bracketUsed ? parseInt(de.bracketUsed) : null,
+          };
+        }),
       });
 
       if ("error" in result) {
@@ -311,6 +350,40 @@ export function EditGameForm({ game }: Props) {
             ))}
           </div>
         </div>
+
+        {/* Deck Info */}
+        {showDeckSection && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+            <h2 className="text-lg font-semibold mb-2">Deck Info</h2>
+            <p className="text-xs text-zinc-500 mb-4">
+              Update commanders and brackets used in this game.
+            </p>
+
+            <div className="space-y-3">
+              {game.players.map((gp) => (
+                <PlayerDeckFields
+                  key={gp.id}
+                  playerId={gp.id}
+                  playerName={getPlayerName(gp)}
+                  format={game.format}
+                  deckName={getDeckDisplayName(gp)}
+                  edit={
+                    deckEdits[gp.id] || {
+                      commanderUsed1: "",
+                      commanderUsed2: "",
+                      bracketUsed: "",
+                      saveAsNewDeck: false,
+                    }
+                  }
+                  onChange={(edit) =>
+                    setDeckEdits((prev) => ({ ...prev, [gp.id]: edit }))
+                  }
+                  canSaveDeck={false}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-between">

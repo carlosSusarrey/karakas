@@ -10,6 +10,9 @@ type PlayerUpdate = {
   isWinner: boolean;
   isFirstOut: boolean;
   eliminatedTurn: number | null;
+  commanderUsed1?: string | null;
+  commanderUsed2?: string | null;
+  bracketUsed?: number | null;
 };
 
 type UpdateGameInput = {
@@ -85,6 +88,15 @@ export async function updateGame(
           isWinner: player.isWinner,
           isFirstOut: player.isFirstOut,
           eliminatedTurn: player.eliminatedTurn,
+          ...(player.commanderUsed1 !== undefined && {
+            commanderUsed1: player.commanderUsed1,
+          }),
+          ...(player.commanderUsed2 !== undefined && {
+            commanderUsed2: player.commanderUsed2,
+          }),
+          ...(player.bracketUsed !== undefined && {
+            bracketUsed: player.bracketUsed,
+          }),
         },
       });
     }
