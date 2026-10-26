@@ -19,8 +19,5 @@
     "mobile": "npm run start --prefix apps/mobile",
     "mobile:ios": "npm run ios --prefix apps/mobile",
     "mobile:android": "npm run android --prefix apps/mobile"
-  },
-  "devDependencies": {
-    "next": "16.1.4"
   }
 }
