@@ -120,6 +120,12 @@ npx vitest run src/path/to/test.test.ts
 - `GET /api/decks/[id]` — Deck details
 - `GET /api/playgroups/[id]` — Playgroup details
 
+## Game Setup & Saving
+
+- Live games (web `/games/play/*`, mobile `app/game/*`) share one reducer: `packages/shared/src/game/reducer.ts`.
+- Finished games are saved in one request: `POST /api/v1/games/complete` (creates pending decks, placements via `computePlacements`, power plays in a transaction).
+- Photo setup: `POST /api/v1/games/setup/detect` reads commanders with Claude vision (`src/lib/commander-detector.ts`, image never stored), then `matchPod` (`packages/shared/src/pod-setup/matcher.ts`, pure) proposes seats + questions. Clients re-run `matchPod` locally with answer "pins".
+
 ## Environment Variables
 
 Stored in `apps/web/.env` and `apps/web/.env.local`:
@@ -136,6 +142,13 @@ NEXT_PUBLIC_APP_URL          # Default: http://localhost:3000
 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET
 APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY
+
+# AI (optional)
+ANTHROPIC_API_KEY            # Claude: commander photo detection + transcript event extraction
+AI_ENABLED_USERS             # Comma-separated usernames allowed to use AI features, or "*"
+AI_VISION_MODEL              # Default: claude-opus-5-5 (commander photo detection)
+OPENAI_API_KEY               # Whisper transcription
+JWT_SECRET                   # Mobile access tokens
 
 # Email (optional — logs to console in dev if missing)
 RESEND_API_KEY

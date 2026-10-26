@@ -1,10 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import type { AuthUser, AuthResponse } from "@karakas/shared";
+import type { AuthUser, AuthResponse, AuthFeatures } from "@karakas/shared";
 import { apiFetch } from "../lib/api";
 import { getTokens, setTokens, clearTokens } from "../lib/secure-store";
 
+const NO_FEATURES: AuthFeatures = { aiSetup: false };
+
+type MeResponse = { user: AuthUser; features?: AuthFeatures };
+
 type AuthState = {
   user: AuthUser | null;
+  features: AuthFeatures;
   isLoading: boolean;
   isAuthenticated: boolean;
 };
@@ -17,9 +22,18 @@ type AuthContextType = AuthState & {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+async function loadFeatures(): Promise<AuthFeatures> {
+  try {
+    return (await apiFetch<MeResponse>("/api/v1/auth/me")).features ?? NO_FEATURES;
+  } catch {
+    return NO_FEATURES;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
+    features: NO_FEATURES,
     isLoading: true,
     isAuthenticated: false,
   });
@@ -30,14 +44,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const tokens = await getTokens();
         if (tokens?.accessToken) {
-          const data = await apiFetch<{ user: AuthUser }>("/api/v1/auth/me");
-          setState({ user: data.user, isLoading: false, isAuthenticated: true });
+          const data = await apiFetch<MeResponse>("/api/v1/auth/me");
+          setState({
+            user: data.user,
+            features: data.features ?? NO_FEATURES,
+            isLoading: false,
+            isAuthenticated: true,
+          });
           return;
         }
       } catch {
         await clearTokens();
       }
-      setState({ user: null, isLoading: false, isAuthenticated: false });
+      setState({ user: null, features: NO_FEATURES, isLoading: false, isAuthenticated: false });
     })();
   }, []);
 
@@ -48,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       skipAuth: true,
     });
     await setTokens(data.accessToken, data.refreshToken);
-    setState({ user: data.user, isLoading: false, isAuthenticated: true });
+    setState({ user: data.user, features: await loadFeatures(), isLoading: false, isAuthenticated: true });
   }, []);
 
   const signup = useCallback(
@@ -59,14 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         skipAuth: true,
       });
       await setTokens(data.accessToken, data.refreshToken);
-      setState({ user: data.user, isLoading: false, isAuthenticated: true });
+      setState({ user: data.user, features: await loadFeatures(), isLoading: false, isAuthenticated: true });
     },
     []
   );
 
   const logout = useCallback(async () => {
     await clearTokens();
-    setState({ user: null, isLoading: false, isAuthenticated: false });
+    setState({ user: null, features: NO_FEATURES, isLoading: false, isAuthenticated: false });
   }, []);
 
   return (

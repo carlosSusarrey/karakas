@@ -58,3 +58,51 @@ export interface DeckSummary {
 export interface ApiError {
   error: string;
 }
+
+export interface AuthFeatures {
+  aiSetup: boolean;
+}
+
+export type DeckKind = "deck" | "playgroupPlayerDeck";
+
+export interface CompleteGameSeat {
+  seat: number;
+  userId?: string;
+  playgroupPlayerId?: string;
+  guestName?: string;
+  deck?: { kind: DeckKind; id: string };
+  pendingNewDeck?: {
+    name: string;
+    commander1: string;
+    commander2?: string;
+    bracket?: number;
+  };
+  commanderUsed1?: string;
+  commanderUsed2?: string;
+  bracketUsed?: number;
+  eliminatedTurn?: number | null;
+}
+
+export interface CompleteGamePowerPlay {
+  seat: number;
+  turn: number;
+  type: string;
+  description: string;
+  cardName?: string;
+}
+
+export interface CompleteGameRequest {
+  format: string;
+  playgroupId: string | null;
+  totalTurns: number | null;
+  playedAt?: string;
+  isDraw: boolean;
+  winnerSeat: number | null;
+  seats: CompleteGameSeat[];
+  powerPlays?: CompleteGamePowerPlay[];
+}
+
+export interface CompleteGameResponse {
+  game: { id: string; players: { id: string; seat: number }[] };
+  createdDecks: { seat: number; deck: { kind: DeckKind; id: string } }[];
+}

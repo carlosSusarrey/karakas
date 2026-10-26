@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
+import { isAiEnabled } from "@/lib/feature-flags";
 
 export async function GET(request: NextRequest) {
   const userId = await requireAuth(request);
@@ -22,7 +23,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ user });
+  return NextResponse.json({
+    user,
+    features: { aiSetup: isAiEnabled(user.username) && !!process.env.ANTHROPIC_API_KEY },
+  });
 }
 
 export async function PATCH(request: NextRequest) {

@@ -44,4 +44,56 @@ export type {
   PlaygroupSummary,
   DeckSummary,
   ApiError,
+  AuthFeatures,
+  DeckKind,
+  CompleteGameSeat,
+  CompleteGamePowerPlay,
+  CompleteGameRequest,
+  CompleteGameResponse,
 } from "./types/api";
+
+// Live game state (life counter)
+export {
+  generateId,
+  toPlayerSetupData,
+  createPlayer,
+  createInitialState,
+  gameReducer,
+  PLAYER_PALETTE,
+} from "./game/reducer";
+
+export type {
+  PendingNewDeck,
+  PlayerState,
+  LocalPowerPlay,
+  GameState,
+  GameAction,
+  PlayerSetupData,
+} from "./game/reducer";
+
+export { computePlacements } from "./game/placements";
+export type { PlacementInput, PlacementResult } from "./game/placements";
+
+export { buildCompleteGameRequest, rematchSetup } from "./game/complete";
+export type { SetupDraft } from "./game/complete";
+
+// Photo-based setup: detection types + deck matching
+export type {
+  PlayerIdentity,
+  SetupPlayer,
+  DeckRef,
+  CandidateDeck,
+  DetectedCommander,
+  PodGroup,
+  SeatStatus,
+  SeatProposal,
+  Pin,
+  QuestionType,
+  QuestionOption,
+  PodQuestion,
+  MatchInput,
+  MatchResult,
+} from "./types/pod-setup";
+
+export { matchPod, defaultPins, normalizeCardName, deckRefKey } from "./pod-setup/matcher";
+export { seatsToPlayerSetup } from "./pod-setup/to-player-setup";

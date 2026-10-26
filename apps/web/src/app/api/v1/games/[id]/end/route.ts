@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
+import { canModifyGame } from "@/lib/game-permissions";
 
 export async function POST(
   request: NextRequest,
@@ -19,6 +20,9 @@ export async function POST(
 
   if (!game) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
+  }
+  if (!canModifyGame(game, userId)) {
+    return NextResponse.json({ error: "Not allowed to edit this game" }, { status: 403 });
   }
 
   // Calculate placements from elimination order

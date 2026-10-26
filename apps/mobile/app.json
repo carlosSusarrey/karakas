@@ -27,7 +27,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Karakas uses the camera to recognize the commanders on the table.",
+          "photosPermission": "Karakas can read a photo of the commanders on the table."
+        }
+      ]
     ],
     "extra": {
       "router": {},

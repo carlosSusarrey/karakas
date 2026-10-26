@@ -197,3 +197,37 @@ export async function getCardImageUrl(cardName: string): Promise<string | null> 
   }
   return null;
 }
+
+const fuzzyCache = new Map<string, { data: ScryfallCard | null; timestamp: number }>();
+
+/** Look up a card by an approximate (misread or partial) name. */
+export async function getCardFuzzy(name: string): Promise<ScryfallCard | null> {
+  const cacheKey = name.toLowerCase();
+  const cached = fuzzyCache.get(cacheKey);
+  if (cached && isCacheValid(cached.timestamp)) {
+    return cached.data;
+  }
+
+  try {
+    const response = await fetch(
+      `${SCRYFALL_API_BASE}/cards/named?fuzzy=${encodeURIComponent(name)}`,
+      { headers: { "User-Agent": USER_AGENT } }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        fuzzyCache.set(cacheKey, { data: null, timestamp: Date.now() });
+      } else {
+        console.error(`Scryfall API error: ${response.status}`);
+      }
+      return null;
+    }
+
+    const data: ScryfallCard = await response.json();
+    fuzzyCache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
+  } catch (error) {
+    console.error("Scryfall getCardFuzzy error:", error);
+    return null;
+  }
+}

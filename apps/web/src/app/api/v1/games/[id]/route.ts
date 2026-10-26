@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
+import { canModifyGame } from "@/lib/game-permissions";
 
 export async function GET(
   request: NextRequest,
@@ -45,9 +46,15 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
 
-  const game = await db.game.findUnique({ where: { id } });
+  const game = await db.game.findUnique({
+    where: { id },
+    include: { players: { select: { userId: true } } },
+  });
   if (!game) {
     return NextResponse.json({ error: "Game not found" }, { status: 404 });
+  }
+  if (!canModifyGame(game, userId)) {
+    return NextResponse.json({ error: "Not allowed to edit this game" }, { status: 403 });
   }
 
   const updated = await db.game.update({
