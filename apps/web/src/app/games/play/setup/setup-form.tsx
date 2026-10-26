@@ -103,7 +103,15 @@ function slotFromSetup(p: PlayerSetupData, i: number): PlayerSlot {
   };
 }
 
-export function SetupForm({ aiSetup, initialDraft }: { aiSetup: boolean; initialDraft: SetupDraft | null }) {
+export function SetupForm({
+  aiSetup,
+  initialDraft,
+  initialPlaygroupId,
+}: {
+  aiSetup: boolean;
+  initialDraft: SetupDraft | null;
+  initialPlaygroupId: string | null;
+}) {
   const router = useRouter();
   const { startNewGame } = useGame();
 
@@ -113,14 +121,14 @@ export function SetupForm({ aiSetup, initialDraft }: { aiSetup: boolean; initial
 
   const [playgroups, setPlaygroups] = useState<Playgroup[]>([]);
   const [selectedPlaygroupId, setSelectedPlaygroupId] = useState<string | null>(
-    initialDraft?.playgroupId ?? null,
+    initialDraft ? (initialDraft.playgroupId ?? null) : initialPlaygroupId,
   );
   const [members, setMembers] = useState<PlaygroupMember[]>([]);
   const [playgroupPlayers, setPlaygroupPlayers] = useState<PlaygroupPlayer[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [playerSlots, setPlayerSlots] = useState<PlayerSlot[]>(() =>
-    initialDraft ? initialDraft.players.map(slotFromSetup) : guestSlots(),
+    initialDraft ? initialDraft.players.map(slotFromSetup) : initialPlaygroupId ? [] : guestSlots(),
   );
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   // A rematch keeps last game's format rather than the playgroup default

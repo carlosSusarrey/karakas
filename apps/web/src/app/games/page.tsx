@@ -234,7 +234,7 @@ export default async function GamesPage({
                     : "Start tracking your first game to see it here."}
                 </p>
                 <Link
-                  href={playgroupId ? `/games/new?playgroup=${playgroupId}` : "/playgroups"}
+                  href={playgroupId ? `/games/play/setup?playgroup=${playgroupId}` : "/playgroups"}
                   className="inline-block bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-lg transition-colors"
                 >
                   {playgroupId ? "Start a Game" : "Go to Playgroups"}

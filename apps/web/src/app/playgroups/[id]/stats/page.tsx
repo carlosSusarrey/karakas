@@ -436,7 +436,7 @@ export default async function PlaygroupStatsPage({
                 Start logging games to see playgroup statistics here.
               </p>
               <Link
-                href={`/games/new?playgroup=${id}`}
+                href={`/games/play/setup?playgroup=${id}`}
                 className="inline-block bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-lg transition-colors"
               >
                 Start a Game

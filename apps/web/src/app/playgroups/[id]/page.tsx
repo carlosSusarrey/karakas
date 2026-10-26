@@ -236,7 +236,7 @@ export default async function PlaygroupDashboardPage({
           {/* Quick Actions */}
           <div className="flex flex-wrap gap-3 mb-8">
             <Link
-              href={`/games/new?playgroup=${id}`}
+              href={`/games/play/setup?playgroup=${id}`}
               className="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Start Game
@@ -435,7 +435,7 @@ export default async function PlaygroupDashboardPage({
                   Start tracking games with this playgroup.
                 </p>
                 <Link
-                  href={`/games/new?playgroup=${id}`}
+                  href={`/games/play/setup?playgroup=${id}`}
                   className="inline-block bg-amber-600 hover:bg-amber-500 text-white px-6 py-2 rounded-lg transition-colors"
                 >
                   Start a Game
